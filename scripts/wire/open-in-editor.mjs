@@ -32,9 +32,20 @@ export default function wire({ home, herdr, patch }) {
     "svg(it[1] === \"" + MOD + "\" ? `mods/" + MOD + "/${it[2].editor}.svg` : menuIcon(it[1]))");
 
   // Two more rows (31 px each) in the space menu.
-  patch(join(home, "mods", SPACES, "main.js"), `mod: "${MENU}"`,
+  const spaces = join(home, "mods", SPACES, "main.js");
+  patch(spaces, `mod: "${MENU}"`,
     `openOverlay({ mod: "menu", kind: "popup", width: 200, height: 260,`,
     `openOverlay({ mod: "${MENU}", kind: "popup", width: 200, height: 330,`);
+
+  // A file manager row where there is one to open: Finder or Explorer.
+  const fileManager = { darwin: "Finder", win32: "Explorer" }[process.platform];
+  if (fileManager) {
+    patch(menu, `editor: "finder"`,
+      `        ["Open in WebStorm", "${MOD}", { editor: "webstorm", space: tg.id }],`,
+      `        ["Open in WebStorm", "${MOD}", { editor: "webstorm", space: tg.id }],
+        ["Open in ${fileManager}", "${MOD}", { editor: "finder", space: tg.id }],`);
+    patch(spaces, `width: 200, height: 361,`, `width: 200, height: 330,`, `width: 200, height: 361,`);
+  }
 
   patch(join(home, "layouts", `${LAYOUT}.json`), `"mod": "${SPACES}"`,
     `"mod": "spaces"`,

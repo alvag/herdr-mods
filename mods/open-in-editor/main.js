@@ -1,6 +1,7 @@
-// Opens a space's folder in VS Code or WebStorm on this computer.
+// Opens a space's folder in VS Code, WebStorm or the file manager (Finder,
+// Explorer) on this computer.
 //
-// Props: { editor: "vscode" | "webstorm", space?: id }. No space: the focused one.
+// Props: { editor: "vscode" | "webstorm" | "finder", space?: id }. No space: the focused one.
 // The folder is the git top level of where the space is now (its first
 // terminal's live folder, else where it was made), else that folder itself.
 //
@@ -22,11 +23,13 @@ async function topLevel(folder) {
   return r?.code === 0 && r.stdout.trim() ? r.stdout.trim() : folder;
 }
 
-async function launch(editorId, folder) {
+async function launch(editorId, folder, platform) {
+  const plan = launchPlan(editorId, folder, platform);
+  if (!plan.length) throw new Error("Not supported on this platform.");
   let last = "";
-  for (const [cmd, args] of launchPlan(editorId, folder, appWindow()?.platform)) {
-    const r = await exec(cmd, args).catch((e) => ({ code: -1, stderr: e?.message ?? String(e) }));
-    if (r.code === 0) return;
+  for (const [cmd, args, opts] of plan) {
+    const r = await exec(cmd, args).catch((e) => ({ failed: true, code: -1, stderr: e?.message ?? String(e) }));
+    if (r.code === 0 || (opts?.anyExit && !r.failed)) return;
     last = r.stderr?.trim() || `${cmd} exited with ${r.code}`;
   }
   throw new Error(last);
@@ -37,7 +40,8 @@ export default class OpenInEditor extends View {
     this.handle = cx.focus_handle();
     this.handle.focus();
     const p = props() ?? {};
-    this.editor = editorOf(p.editor);
+    this.platform = appWindow()?.platform;
+    this.editor = editorOf(p.editor, this.platform);
     const f = focused();
     const space = spaces().find((s) => s.id === (p.space ?? f?.space)) ?? spaces().find((s) => s.active);
     // From a menu, the space's own folder; from a key, the focused terminal's.
@@ -52,7 +56,7 @@ export default class OpenInEditor extends View {
       try {
         this.folder = await topLevel(this.folder);
         cx.notify();
-        await launch(p.editor, this.folder);
+        await launch(p.editor, this.folder, this.platform);
         closeOverlay(p.overlay);
       } catch (e) {
         this.error = e?.message ?? String(e);
