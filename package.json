@@ -1,0 +1,9 @@
+{
+  "name": "herdr-mods",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "install-mod": "node scripts/install.mjs"
+  }
+}

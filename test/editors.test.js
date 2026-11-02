@@ -1,0 +1,22 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { editorOf, launchPlan } from "../mods/open-in-editor/editors.js";
+
+test("editorOf falls back to VS Code", () => {
+  assert.equal(editorOf("webstorm").title, "WebStorm");
+  assert.equal(editorOf(undefined).title, "VS Code");
+  assert.equal(editorOf("vim").title, "VS Code");
+});
+
+test("macOS opens the app through Launch Services first, then the CLI", () => {
+  assert.deepEqual(launchPlan("webstorm", "/a b/c", "macos"), [
+    ["open", ["-a", "WebStorm", "/a b/c"]],
+    ["webstorm", ["/a b/c"]],
+  ]);
+  assert.deepEqual(launchPlan("vscode", "/x", "macos")[0], ["open", ["-a", "Visual Studio Code", "/x"]]);
+});
+
+test("Linux uses the CLI, Windows its .cmd shim first", () => {
+  assert.deepEqual(launchPlan("vscode", "/x", "linux"), [["code", ["/x"]]]);
+  assert.deepEqual(launchPlan("webstorm", "C:\\x", "windows")[0], ["webstorm.cmd", ["C:\\x"]]);
+});
