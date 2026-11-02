@@ -29,6 +29,8 @@ A small dialog says `Opening in <Editor>…` and closes by itself. On failure it
 2. Patches them: the rows in the space menu, the sidebar opening `my-menu` (taller popup), and `my-main` using `my-spaces`.
 3. Switches to `my-main`; the installer then checks `my-menu` and `my-spaces` too.
 
+`my-main` is shared with [`file-actions`](file-actions.md); each one patches only its own part.
+
 If a Herdr update changes the anchors it patches, it stops and names the file.
 
 ## Other ways to start it
@@ -52,7 +54,17 @@ If a Herdr update changes the anchors it patches, it stops and names the file.
 
 ## Uninstall
 
+Point `my-main` back at Herdr's sidebar, then delete the mod and its clones:
+
+```sh
+H=~/.config/herdr-app
+sed -i '' 's/"mod": "my-spaces"/"mod": "spaces"/' $H/layouts/my-main.json   # Linux: sed -i '…'
+rm -rf $H/mods/{open-in-editor,my-menu,my-spaces}
+```
+
+If no other mod uses `my-main` ([`file-actions`](file-actions.md) does), also go back to `main` and delete it:
+
 ```sh
 herdr-app do layout.switch '{"name":"main"}'
-rm -rf ~/.config/herdr-app/mods/{open-in-editor,my-menu,my-spaces} ~/.config/herdr-app/layouts/my-main.json
+rm ~/.config/herdr-app/layouts/my-main.json
 ```
