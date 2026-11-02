@@ -8,6 +8,15 @@ Personal [Herdr](https://herdr.dev) mods, each installed on its own so every com
 
 ## Install
 
+Without cloning (needs Node and `herdr-app` on the `PATH`):
+
+```sh
+npx github:alvag/herdr-mods                  # every mod
+npx github:alvag/herdr-mods open-in-editor   # only the named ones
+```
+
+From a clone:
+
 ```sh
 npm test                                # unit tests
 npm run install-mod                     # every mod in mods/
@@ -35,6 +44,14 @@ To remove a mod from a computer, delete its folder from `~/.config/herdr-app/mod
 ## open-in-editor
 
 Inspired by [CacaoRick/herdr-open-vscode](https://github.com/CacaoRick/herdr-open-vscode).
+
+### Install
+
+```sh
+npx github:alvag/herdr-mods open-in-editor
+```
+
+Run it again to update; patches already applied are skipped.
 
 ### What it does
 

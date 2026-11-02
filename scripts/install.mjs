@@ -1,7 +1,9 @@
+#!/usr/bin/env node
 // Installs mods from this repo into the Herdr app home.
 //
 //   node scripts/install.mjs                 every mod in mods/
 //   node scripts/install.mjs open-in-editor  only the named ones
+//   npx github:alvag/herdr-mods [names]      same, without cloning this repo
 //
 // Each mod folder is copied to <home>/mods/. A mod that needs more than its
 // folder (clones, menu rows, layouts) has a hook in scripts/wire/<name>.mjs,
