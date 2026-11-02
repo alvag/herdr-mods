@@ -36,6 +36,8 @@ export function menuItems(platform, on) {
     ...(desk && !on ? [{ id: "reveal", label: `Reveal in ${platform === "windows" ? "Explorer" : "Finder"}`, icon: "folder" }] : []),
     { id: "new-file", label: "New file…", icon: "plus", separated: desk },
     { id: "new-folder", label: "New folder…", icon: "folder-plus" },
+    // Only where it can be undone: this computer's Trash or Recycle Bin.
+    ...(desk && !on ? [{ id: "delete", label: platform === "windows" ? "Move to Recycle Bin" : "Move to Trash", icon: "x", separated: true }] : []),
   ];
 }
 
@@ -67,6 +69,12 @@ export function checkName(name) {
   return null;
 }
 
+// What the dialog says when creating fails: the name when it already exists
+// (sh, mkdir and New-Item each word it differently), else the program's error.
+export function createError(message, name) {
+  return /already exists|existing file|File exists/i.test(message) ? `${name} already exists.` : message;
+}
+
 // [program, args] that put text on this computer's clipboard, or null.
 // exec has no stdin, so macOS pipes the argument into pbcopy through sh.
 export function copyPlan(text, platform) {
@@ -89,4 +97,18 @@ export function createPlan(kind, full, platform, on) {
   if (platform === "windows" && !on)
     return ["powershell", ["-NoProfile", "-Command", `New-Item -ItemType ${kind === "folder" ? "Directory" : "File"} -Path ${literal(full)} -ErrorAction Stop | Out-Null`]];
   return ["sh", ["-c", kind === "folder" ? 'mkdir -- "$1"' : 'set -C; : > "$1"', "new", full]];
+}
+
+// The commands to try in order, each [program, args], that move an entry to the
+// Trash or Recycle Bin; empty where there is none. macOS 15+ ships `trash`;
+// older ones go through Finder.
+export function deletePlan(full, platform) {
+  if (platform === "macos") return [
+    ["trash", ["-s", full]],
+    ["osascript", ["-e", "on run argv", "-e", 'tell application "Finder" to delete (POSIX file (item 1 of argv) as alias)', "-e", "end run", full]],
+  ];
+  if (platform === "windows") return [["powershell", ["-NoProfile", "-Command",
+    `$ErrorActionPreference = 'Stop'; Add-Type -AssemblyName Microsoft.VisualBasic; $p = ${literal(full)}; $fs = [Microsoft.VisualBasic.FileIO.FileSystem]; ` +
+    `if (Test-Path -LiteralPath $p -PathType Container) { $fs::DeleteDirectory($p, 'OnlyErrorDialogs', 'SendToRecycleBin') } else { $fs::DeleteFile($p, 'OnlyErrorDialogs', 'SendToRecycleBin') }`]]];
+  return [];
 }

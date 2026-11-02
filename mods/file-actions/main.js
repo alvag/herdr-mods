@@ -1,14 +1,15 @@
 // Right-click actions for a row of the Files panel (the my-files clone opens it).
 //
-// Two overlays, chosen by props:
+// Three overlays, chosen by props:
 //   popup  { root, path, dir, on }               the menu for one entry
 //   dialog { create: "file" | "folder", root, folder, on }   the name of a new entry
+//   dialog { remove: true, root, path, dir }     confirms moving an entry to the Trash
 // `root` is the panel's folder, `path` the entry relative to it ("/" separated),
 // `on` the machine of a space on another computer (null here).
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { closeOverlay, exec, notify, openOverlay, props, theme, window as appWindow } from "herdr";
-import { checkName, copyPlan, createPlan, menuItems, pathsOf, revealPlan, targetFolder } from "./actions.js";
+import { checkName, copyPlan, createError, createPlan, deletePlan, menuItems, pathsOf, revealPlan, targetFolder } from "./actions.js";
 
 // Runs [program, args, options?]; resolves when it worked, else throws its reason.
 async function attempt([cmd, args, opts], on) {
@@ -17,7 +18,24 @@ async function attempt([cmd, args, opts], on) {
   throw new Error(r.stderr?.trim() || `${cmd} exited with ${r.code}`);
 }
 
+// Tries each [program, args] in order until one works; throws the last reason.
+async function attemptAll(plan) {
+  if (!plan.length) throw new Error("Not supported on this platform.");
+  let last;
+  for (const step of plan) {
+    try { return await attempt(step); } catch (e) { last = e; }
+  }
+  throw last;
+}
+
 const fail = (title, e) => notify({ title, body: e?.message ?? String(e), level: "error" });
+
+function button(t, id, text, primary, action) {
+  return h_flex().id(id).h(32).px(14).items_center().rounded(8)
+    .border_1().border_color(primary ? t.solid : t.input).bg(primary ? t.solid : t.raised)
+    .text_color(primary ? t.solid_foreground : t.foreground).text_size(12.5).font_medium().cursor_pointer()
+    .hover((s) => s.opacity(0.88)).on_click(action).child(text);
+}
 
 export default class FileActions extends View {
   init(_props, cx) {
@@ -47,6 +65,9 @@ export default class FileActions extends View {
         try { await attempt(copyPlan(text, this.platform)); notify({ title: "Copied", body: text, level: "success", timeout: 2000 }); }
         catch (e) { fail("Could not copy", e); }
       });
+    } else if (item.id === "delete") {
+      openOverlay({ mod: "file-actions", kind: "dialog", width: 420, height: 168,
+        props: { remove: true, root: p.root, path: p.path, dir: p.dir } });
     } else if (item.id === "reveal") {
       cx.spawn(async () => { try { await attempt(revealPlan(full, this.platform)); } catch (e) { fail("Could not reveal", e); } });
     } else {
@@ -64,12 +85,23 @@ export default class FileActions extends View {
     cx.spawn(async (cx) => {
       // The Files panel watches its folder, so the new entry shows up by itself.
       try { await attempt(createPlan(p.create, full, this.platform, p.on), p.on); closeOverlay(p.overlay); }
+      catch (e) { this.error = createError(e?.message ?? String(e), this.name.trim()); cx.notify(); }
+    });
+  }
+
+  remove(cx) {
+    const p = props();
+    const { full } = pathsOf(p.root, p.path, this.platform, null);
+    cx.spawn(async (cx) => {
+      // The Files panel watches its folder, so the entry goes away by itself.
+      try { await attemptAll(deletePlan(full, this.platform)); closeOverlay(p.overlay); }
       catch (e) { this.error = e?.message ?? String(e); cx.notify(); }
     });
   }
 
   render(cx) {
-    return props()?.create ? this.dialog() : this.menu();
+    const p = props() ?? {};
+    return p.create ? this.dialog() : p.remove ? this.confirm() : this.menu();
   }
 
   menu() {
@@ -97,10 +129,6 @@ export default class FileActions extends View {
   dialog() {
     const t = theme(), p = props();
     const where = p.folder || p.root.split(/[\\/]/).pop();
-    const button = (id, text, primary, action) => h_flex().id(id).h(32).px(14).items_center().rounded(8)
-      .border_1().border_color(primary ? t.solid : t.input).bg(primary ? t.solid : t.raised)
-      .text_color(primary ? t.solid_foreground : t.foreground).text_size(12.5).font_medium().cursor_pointer()
-      .hover((s) => s.opacity(0.88)).on_click(action).child(text);
     return v_flex().id("file-actions-new").track_focus(this.handle).w_full().min_h(0).p(18).bg(t.popover).text_color(t.foreground)
       .on_key_down((e, cx) => { if (e.key === "escape") { closeOverlay(p.overlay); cx.stop_propagation(); } })
       .child(h_flex().items_center()
@@ -110,7 +138,26 @@ export default class FileActions extends View {
       .child(Input.new(this.input).h(36).px(10).rounded(9).border_1().border_color(this.error ? t.blocked : t.accent).bg(t.background).text_size(12.8).text_color(t.foreground))
       .when(Boolean(this.error), (el) => el.child(div().pt(6).text_size(11.5).text_color(t.blocked).truncate().child(this.error)))
       .child(h_flex().pt(16).gap(8).justify_end()
-        .child(button("fa-cancel", "Cancel", false, () => closeOverlay(p.overlay)))
-        .child(button("fa-create", "Create", true, (_e, cx) => this.create(cx))));
+        .child(button(t, "fa-cancel", "Cancel", false, () => closeOverlay(p.overlay)))
+        .child(button(t, "fa-create", "Create", true, (_e, cx) => this.create(cx))));
+  }
+
+  confirm() {
+    const t = theme(), p = props();
+    const name = p.path.split("/").pop();
+    const bin = this.platform === "windows" ? "Recycle Bin" : "Trash";
+    return v_flex().id("file-actions-delete").track_focus(this.handle).w_full().min_h(0).p(18).bg(t.popover).text_color(t.foreground)
+      .on_key_down((e, cx) => {
+        if (e.key === "escape") { closeOverlay(p.overlay); cx.stop_propagation(); }
+        else if (e.key === "enter") { this.remove(cx); cx.stop_propagation(); }
+      })
+      .child(h_flex().items_center()
+        .child(div().flex_1().min_w(0).truncate().text_size(15).font_semibold().child(`Move ${name} to the ${bin}?`))
+        .child(div().text_size(11).text_color(t.dim).child("Esc")))
+      .child(div().pt(10).text_size(12).text_color(this.error ? t.blocked : t.muted).truncate()
+        .child(this.error ?? (p.dir ? `${p.path} and everything in it` : p.path)))
+      .child(h_flex().pt(18).gap(8).justify_end()
+        .child(button(t, "fa-cancel", "Cancel", false, () => closeOverlay(p.overlay)))
+        .child(button(t, "fa-delete", `Move to ${bin}`, true, (_e, cx) => this.remove(cx))));
   }
 }

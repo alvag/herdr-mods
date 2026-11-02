@@ -1,26 +1,28 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  checkName, copyPlan, createPlan, menuHeight, menuItems, pathsOf, revealPlan, targetFolder,
+  checkName, copyPlan, createError, deletePlan, createPlan, menuHeight, menuItems, pathsOf, revealPlan, targetFolder,
 } from "../mods/file-actions/actions.js";
 
 const ids = (items) => items.map((it) => it.id);
 // PowerShell that turns UTF-8 base64 back into the text.
 const decoded = (s) => `([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${Buffer.from(s, "utf8").toString("base64")}')))`;
 
-test("menu: copy and reveal on macOS and Windows, then new file and folder", () => {
-  assert.deepEqual(ids(menuItems("macos", null)), ["copy", "copy-relative", "reveal", "new-file", "new-folder"]);
+test("menu: copy and reveal, new file and folder, then delete on macOS and Windows", () => {
+  assert.deepEqual(ids(menuItems("macos", null)), ["copy", "copy-relative", "reveal", "new-file", "new-folder", "delete"]);
   assert.equal(menuItems("macos", null)[2].label, "Reveal in Finder");
   assert.equal(menuItems("windows", null)[2].label, "Reveal in Explorer");
+  assert.equal(menuItems("macos", null)[5].label, "Move to Trash");
+  assert.equal(menuItems("windows", null)[5].label, "Move to Recycle Bin");
 });
 
-test("menu: no reveal for a space on another machine, no copy or reveal on Linux", () => {
+test("menu: no reveal or delete on another machine, no copy, reveal or delete on Linux", () => {
   assert.deepEqual(ids(menuItems("macos", "devbox")), ["copy", "copy-relative", "new-file", "new-folder"]);
   assert.deepEqual(ids(menuItems("linux", null)), ["new-file", "new-folder"]);
 });
 
 test("menu height fits its rows (31 px), padding and the separator", () => {
-  assert.equal(menuHeight("macos", null), 10 + 5 * 31 + 9);
+  assert.equal(menuHeight("macos", null), 10 + 6 * 31 + 2 * 9);
   assert.equal(menuHeight("macos", "devbox"), 10 + 4 * 31 + 9);
   assert.equal(menuHeight("linux", null), 10 + 2 * 31);
 });
@@ -83,4 +85,27 @@ test("Windows: a name can't break out of PowerShell, even with curly quotes", ()
   }
   const b64 = copyPlan(evil, "windows")[1][2].match(/'([A-Za-z0-9+/=]*)'/)[1];
   assert.equal(Buffer.from(b64, "base64").toString("utf8"), evil);
+});
+
+test("create errors: an existing entry says so by name, other errors pass through", () => {
+  assert.equal(createError("new: /r/scripts/install.mjs: cannot overwrite existing file", "install.mjs"), "install.mjs already exists.");
+  assert.equal(createError("mkdir: /r/wire: File exists", "wire"), "wire already exists.");
+  assert.equal(createError("New-Item : An item with the specified name C:\\r\\a already exists.", "a"), "a already exists.");
+  assert.equal(createError("mkdir: /r/x: Permission denied", "x"), "mkdir: /r/x: Permission denied");
+});
+
+test("delete: to the Trash with trash -s, else through Finder, on macOS", () => {
+  assert.deepEqual(deletePlan("/a b/it's", "macos"), [
+    ["trash", ["-s", "/a b/it's"]],
+    ["osascript", ["-e", "on run argv", "-e", 'tell application "Finder" to delete (POSIX file (item 1 of argv) as alias)', "-e", "end run", "/a b/it's"]],
+  ]);
+});
+
+test("delete: to the Recycle Bin on Windows, the path as base64; none elsewhere", () => {
+  const [[cmd, args]] = deletePlan("C:\\r\\x\u2019; Start-Process calc", "windows");
+  assert.equal(cmd, "powershell");
+  assert.equal(args[2].includes("Start-Process"), false);
+  assert.equal(args[2].includes("SendToRecycleBin"), true);
+  assert.equal(args[2].startsWith("$ErrorActionPreference = 'Stop'"), true);
+  assert.deepEqual(deletePlan("/x", "linux"), []);
 });

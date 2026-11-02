@@ -19,17 +19,21 @@ Run it again to update; patches already applied are skipped.
 | **Copy relative path** | Its path relative to the panel's folder (the one shown in its header) |
 | **Reveal in Finder** / **Reveal in Explorer** | Opens the file manager with the entry selected |
 | **New file…** / **New folder…** | Asks for a name and creates it inside the clicked folder, or beside the clicked file |
+| **Move to Trash** / **Move to Recycle Bin** | Asks first, then moves the entry (a folder with everything in it) to the Trash or Recycle Bin, so it can be restored |
 
 - Copying shows a `Copied` notification. Windows paths are copied with backslashes.
-- A new entry never replaces an existing one: the dialog shows the reason and stays open. Esc closes it. The panel shows the new entry by itself (it watches its folder; spaces on another machine refresh within 10 s).
+- A new entry never replaces an existing one: the dialog says `<name> already exists.` and stays open. Esc closes it. The panel shows the new entry by itself (it watches its folder; spaces on another machine refresh within 10 s).
 - Names are one entry, not a path (`a/b` is refused).
+- Deleting asks in a dialog (Enter confirms, Esc cancels). There is no permanent delete: where there's no Trash (Linux, a space on another machine) the row isn't shown.
 
-| Platform | Copy | Reveal | New file / folder |
-|---|---|---|---|
-| macOS | `pbcopy` | `open -R` | `sh` |
-| Windows | `Set-Clipboard` | `explorer.exe /select,` (its exit code is ignored, it returns 1 even when it opens) | `New-Item` |
-| Linux | no row | no row | `sh` |
-| A space on another machine | to this computer's clipboard | no row | `sh` on that machine |
+| Platform | Copy | Reveal | New file / folder | Delete |
+|---|---|---|---|---|
+| macOS | `pbcopy` | `open -R` | `sh` | `trash -s` (macOS 15+), else Finder through `osascript` |
+| Windows | `Set-Clipboard` | `explorer.exe /select,` (its exit code is ignored, it returns 1 even when it opens) | `New-Item` | `Microsoft.VisualBasic` `SendToRecycleBin` |
+| Linux | no row | no row | `sh` | no row |
+| A space on another machine | to this computer's clipboard | no row | `sh` on that machine | no row |
+
+On Windows, paths reach PowerShell as UTF-8 base64, never inside its source: PowerShell also ends strings at curly quotes, so quoting a file name isn't safe. On macOS before 15, the first delete asks once to let Herdr control Finder.
 
 ## Wiring (`scripts/wire/file-actions.mjs`)
 
