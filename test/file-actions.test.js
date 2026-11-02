@@ -5,6 +5,8 @@ import {
 } from "../mods/file-actions/actions.js";
 
 const ids = (items) => items.map((it) => it.id);
+// PowerShell that turns UTF-8 base64 back into the text.
+const decoded = (s) => `([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${Buffer.from(s, "utf8").toString("base64")}')))`;
 
 test("menu: copy and reveal on macOS and Windows, then new file and folder", () => {
   assert.deepEqual(ids(menuItems("macos", null)), ["copy", "copy-relative", "reveal", "new-file", "new-folder"]);
@@ -51,7 +53,7 @@ test("names: one entry, not a path", () => {
 test("copy: pbcopy on macOS, Set-Clipboard on Windows with quotes escaped, none on Linux", () => {
   assert.deepEqual(copyPlan("/a b/c", "macos"), ["sh", ["-c", 'printf %s "$1" | pbcopy', "copy", "/a b/c"]]);
   assert.deepEqual(copyPlan("C:\\it's", "windows"),
-    ["powershell", ["-NoProfile", "-Command", "Set-Clipboard -Value 'C:\\it''s'"]]);
+    ["powershell", ["-NoProfile", "-Command", `Set-Clipboard -Value ${decoded("C:\\it's")}`]]);
   assert.equal(copyPlan("/x", "linux"), null);
 });
 
@@ -69,6 +71,16 @@ test("create: sh without overwriting on macOS, Linux and other machines", () => 
 
 test("create: New-Item on Windows, failing when it exists", () => {
   assert.deepEqual(createPlan("folder", "C:\\r\\it's", "windows", null),
-    ["powershell", ["-NoProfile", "-Command", "New-Item -ItemType Directory -Path 'C:\\r\\it''s' -ErrorAction Stop | Out-Null"]]);
+    ["powershell", ["-NoProfile", "-Command", `New-Item -ItemType Directory -Path ${decoded("C:\\r\\it's")} -ErrorAction Stop | Out-Null`]]);
   assert.equal(createPlan("file", "C:\\r\\a", "windows", null)[1][2].includes("-ItemType File"), true);
+});
+
+test("Windows: a name can't break out of PowerShell, even with curly quotes", () => {
+  const evil = "x\u2019; Start-Process calc; #\u2018\u201a\u201b'ñ😀";
+  for (const command of [copyPlan(evil, "windows")[1][2], createPlan("file", `C:\\r\\${evil}`, "windows", null)[1][2]]) {
+    assert.equal(/[\u2018-\u201b']([^A-Za-z0-9+/=]|$)/.test(command.replace(/'[A-Za-z0-9+/=]*'/g, "")), false);
+    assert.equal(command.includes("Start-Process"), false);
+  }
+  const b64 = copyPlan(evil, "windows")[1][2].match(/'([A-Za-z0-9+/=]*)'/)[1];
+  assert.equal(Buffer.from(b64, "base64").toString("utf8"), evil);
 });
