@@ -1,6 +1,6 @@
 # file-actions
 
-Right-click a file or folder in Herdr's Files panel for a small menu.
+Right-click a file or folder in Herdr's Files panel for a small menu. Click a file to open it in its own tab, with the whole width to read it.
 
 ## Install
 
@@ -12,6 +12,10 @@ npm run install-mod -- file-actions               # from a clone
 Run it again to update; patches already applied are skipped.
 
 ## What it does
+
+**Click a file**: it opens in a new tab named after it, read-only, with syntax highlighting and line numbers (the panel's own small preview is gone). It reloads when the file changes on disk (on this computer). The Files panel keeps showing the folder the file came from. Clicking the same file again opens another tab.
+
+**Right-click** a file or folder:
 
 | Row | What it does |
 |---|---|
@@ -44,7 +48,7 @@ On Windows, paths reach PowerShell as UTF-8 base64, never inside its source: Pow
 
 1. Clones Herdr's read-only `files` mod as `my-files`, and the `main` layout as `my-main`, if they don't exist yet.
 2. Copies `mods/file-actions/actions.js` into `my-files/file-actions.js` on every install. A mod can't import from another mod's folder; the clone uses it to size the popup.
-3. Patches `my-files`: each row opens `file-actions` as a popup on right-click.
+3. Patches `my-files`: each row opens `file-actions` as a popup on right-click; a click on a file opens it as a tab (`tab.new` with `file-actions` as its only pane); while that tab is focused, the panel keeps its folder (`location()`).
 4. Points `my-main`'s Files panel at `my-files`, switches to `my-main`; the installer then checks `my-files` too.
 
 `my-main` is shared with [`open-in-editor`](open-in-editor.md); each one patches only its own part.
@@ -53,6 +57,7 @@ If a Herdr update changes the anchors it patches, it stops and names the file.
 
 ## Limits
 
+- Installing again (or updating) reloads the mod: Herdr closes the file tabs that were open.
 - Right-click on a row only, not on the panel's empty space. To create at the top level, right-click a top-level file.
 - Send to agent: a path with spaces is sent as `@"a b/c"`; not checked against each agent, and a path with both spaces and `"` comes out wrongly quoted. Outside the agent's folder (or with a different case or separator) the path is full instead of relative.
 - Copy and reveal need macOS or Windows. Only macOS is tested on a real Herdr.
@@ -72,7 +77,7 @@ grep -A3 cloned_from $H/mods/my-files/mod.json   # the version my-files was clon
 diff $H/mods/files/main.js $H/mods/my-files/main.js
 ```
 
-The `diff` should show only this mod's two patches: the `openOverlay` / `menuHeight` imports, and the `.on_mouse_down("right", …)` line. Anything else means Herdr changed the Files panel. Then clone it again:
+The `diff` should show only this mod's patches: the `openOverlay` / `run` / `menuHeight` imports, `lastLocation` in `location()`, the row's `.on_click` (`tab.new`) and `.on_mouse_down("right", …)`, and the icon paths Herdr rewrites to `mods/my-files/` when it clones. Anything else means Herdr changed the Files panel. Then clone it again:
 
 ```sh
 rm -rf ~/.config/herdr-app/mods/my-files

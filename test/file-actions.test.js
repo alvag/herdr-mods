@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  checkName, copyPlan, createError, deletePlan, mentionOf, openPlan, pasteBlocker, pickAgent, createPlan, menuHeight, menuItems, pathsOf, revealPlan, targetFolder,
+  checkName, copyPlan, createError, deletePlan, languageOf, previewOf, mentionOf, openPlan, pasteBlocker, pickAgent, createPlan, menuHeight, menuItems, pathsOf, revealPlan, targetFolder,
 } from "../mods/file-actions/actions.js";
 
 const ids = (items) => items.map((it) => it.id);
@@ -150,4 +150,21 @@ test("send to agent: refuses a missing agent or one waiting on a dialog", () => 
   assert.equal(pasteBlocker(null), "No agent in this space");
   assert.equal(pasteBlocker({ address: "t3", status: "blocked", title: "pi" }), "t3 is waiting for an answer");
   for (const status of ["idle", "working", "done"]) assert.equal(pasteBlocker({ address: "t3", status }), null);
+});
+
+test("viewer: the language from the extension, as the Files panel maps it", () => {
+  assert.equal(languageOf("src/app.component.ts"), "js");
+  assert.equal(languageOf("a/b.vue"), "html");
+  assert.equal(languageOf("README.md"), "md");
+  assert.equal(languageOf("Makefile"), "txt");
+  assert.equal(languageOf(".gitignore"), "gitignore");
+});
+
+test("viewer: text as is, a gone or binary file says so, a big one is cut", () => {
+  assert.deepEqual(previewOf("hi\n"), { value: "hi\n" });
+  assert.deepEqual(previewOf(null), { error: "This file is no longer available" });
+  assert.deepEqual(previewOf("a\0b"), { error: "Binary file · no text preview" });
+  const big = previewOf("x".repeat(400001));
+  assert.equal(big.value.length, 400000 + "\n… (file truncated)".length);
+  assert.equal(big.value.endsWith("… (file truncated)"), true);
 });

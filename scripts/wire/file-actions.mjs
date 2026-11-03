@@ -32,6 +32,26 @@ import { menuHeight } from "./${MOD}.js";`);
         .on_mouse_down("right", () => openOverlay({ mod: "${MOD}", kind: "popup", width: 230, height: menuHeight(window()?.platform, this.on),
           props: { root: this.root, path, dir: entry.dir, on: this.on } }))`);
 
+  // A click on a file opens it as a whole tab instead of the panel's small preview.
+  patch(files, `openOverlay, run } from "herdr"`,
+    `window, openOverlay } from "herdr";`,
+    `window, openOverlay, run } from "herdr";`);
+  patch(files, `mod: "${MOD}", props: { view: path`,
+    `        .on_click((_e, cx) => entry.dir ? this.toggle(path, cx) : this.show(path, cx))`,
+    `        .on_click((_e, cx) => entry.dir ? this.toggle(path, cx)
+          : run("tab.new", { name: entry.name, mod: "${MOD}", props: { view: path, root: this.root, on: this.on } }))`);
+
+  // A viewer tab has no folder, so the panel would fall back to the space's:
+  // keep showing the folder the file came from.
+  patch(files, `let lastLocation = null;`,
+    `function location() {`,
+    `let lastLocation = null;
+function location() {`);
+  patch(files, `pane?.mod === "${MOD}"`,
+    `  return { cwd: pane?.cwd || f?.cwd || space?.folder, on, space: space?.id };`,
+    `  if (pane?.mod === "${MOD}" && lastLocation?.space === space?.id) return lastLocation;
+  return (lastLocation = { cwd: pane?.cwd || f?.cwd || space?.folder, on, space: space?.id });`);
+
   patch(join(home, "layouts", `${LAYOUT}.json`), `"mod": "${FILES}"`,
     `"mod": "files"`,
     `"mod": "${FILES}"`);

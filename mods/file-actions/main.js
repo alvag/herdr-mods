@@ -4,13 +4,16 @@
 //   popup  { root, path, dir, on }               the menu for one entry
 //   dialog { create: "file" | "folder", root, folder, on }   the name of a new entry
 //   dialog { remove: true, root, path, dir }     confirms moving an entry to the Trash
+//   tab    { view: path, root, on }              a file, read-only, as a whole tab (tab.new)
 // `root` is the panel's folder, `path` the entry relative to it ("/" separated),
 // `on` the machine of a space on another computer (null here).
 import { View, div, svg } from "gpui-kit";
-import { v_flex, h_flex, InputState, Input } from "gpui-base";
-import { agents, closeOverlay, exec, focused, notify, openOverlay, panes, props, run, spaces, theme, window as appWindow } from "herdr";
+import { v_flex, h_flex, InputState, Input, Editor, EditorState } from "gpui-base";
 import {
-  checkName, copyPlan, createError, createPlan, deletePlan, mentionOf, menuItems, openPlan, pasteBlocker, pathsOf, pickAgent, revealPlan, targetFolder,
+  agents, closeOverlay, exec, focused, notify, openOverlay, panes, props, readTextFile, run, settings, spaces, theme, watchFolder, window as appWindow,
+} from "herdr";
+import {
+  checkName, copyPlan, createError, createPlan, deletePlan, languageOf, mentionOf, previewOf, menuItems, openPlan, pasteBlocker, pathsOf, pickAgent, revealPlan, targetFolder,
 } from "./actions.js";
 
 // Runs [program, args, options?]; resolves when it worked, else throws its reason.
@@ -45,6 +48,7 @@ export default class FileActions extends View {
     this.platform = appWindow()?.platform;
     this.handle = cx.focus_handle();
     this.at = 0;
+    if (p.view) return this.watch(cx);
     if (p.create) {
       this.name = "";
       this.error = null;
@@ -129,9 +133,53 @@ export default class FileActions extends View {
     });
   }
 
+  // Loads the file, then again whenever its folder changes (on this computer;
+  // another machine's file loads once).
+  watch(cx) {
+    const p = props();
+    const full = `${p.root}/${p.view}`, folder = full.slice(0, full.lastIndexOf("/"));
+    cx.spawn(async (cx) => {
+      for (;;) {
+        await this.load(full, p.on);
+        cx.notify();
+        if (p.on) return;
+        try { await watchFolder(folder); } catch { return; }
+      }
+    });
+  }
+
+  async load(full, on) {
+    let text, failure = null;
+    try { text = await readTextFile(full, { on: on ?? null }); }
+    catch (e) { failure = `Cannot preview this file: ${e?.message ?? e}`; }
+    if (!failure && this.loaded && text === this.text) return;
+    this.loaded = true;
+    this.text = text;
+    const shown = failure ? { error: failure } : previewOf(text);
+    this.code?.release();
+    this.code = null;
+    this.viewError = shown.error ?? null;
+    if (shown.value === undefined) return;
+    const t = theme();
+    this.code = EditorState.new({ language: languageOf(full), readonly: true, value: shown.value,
+      font_family: settings().font_family, font_size: 13,
+      syntax: { keyword: t.ansi5, string: t.ansi2, comment: t.dim, function: t.ansi4, type: t.ansi3, number: t.ansi1, constant: t.ansi6 } });
+  }
+
   render(cx) {
     const p = props() ?? {};
-    return p.create ? this.dialog() : p.remove ? this.confirm() : this.menu();
+    return p.view ? this.viewer() : p.create ? this.dialog() : p.remove ? this.confirm() : this.menu();
+  }
+
+  viewer() {
+    const t = theme(), p = props();
+    return v_flex().id("file-actions-view").size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background)
+      .border_1().border_color(t.border).text_color(t.foreground).text_size(13)
+      .child(h_flex().h(36).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
+        .child(div().flex_1().min_w(0).truncate().font_semibold().child(p.view))
+        .child(div().flex_none().text_size(12).text_color(t.dim).child(p.root.split(/[\\/]/).pop())))
+      .child(this.code ? Editor.new(this.code).flex_1().min_h(0)
+        : div().p(12).text_color(t.dim).child(this.viewError ?? "Loading file…"));
   }
 
   menu() {

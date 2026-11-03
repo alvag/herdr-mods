@@ -168,3 +168,22 @@ export function pasteBlocker(agent) {
   if (agent.status === "blocked") return `${agent.address} is waiting for an answer`;
   return null;
 }
+
+// The viewer tab shows a file the way the Files panel previewed it (same
+// language map, size cap and messages; copied from Herdr's files mod).
+const LANG = { ts: "js", tsx: "js", mts: "js", cts: "js", jsx: "js", mjs: "js", toml: "yaml", jsonc: "json", svelte: "html", vue: "html" };
+const MAX_TEXT = 400000;
+
+// The editor language for a path, from its extension ("txt" without one).
+export function languageOf(path) {
+  const name = path.split("/").pop();
+  const ext = name.includes(".") ? name.split(".").pop() : "txt";
+  return LANG[ext] ?? ext;
+}
+
+// What the viewer shows for a file's text (null: it's gone): { value } or { error }.
+export function previewOf(text) {
+  if (text === null) return { error: "This file is no longer available" };
+  if (text.includes("\0")) return { error: "Binary file · no text preview" };
+  return { value: text.length > MAX_TEXT ? text.slice(0, MAX_TEXT) + "\n… (file truncated)" : text };
+}
