@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  checkName, copyPlan, createError, deletePlan, languageOf, planOpen, previewOf, tabTitle, mentionOf, openPlan, pasteBlocker, pickAgent, createPlan, menuHeight, menuItems, pathsOf, revealPlan, targetFolder,
+  checkName, claimTab, copyPlan, createError, deletePlan, languageOf, planOpen, previewOf, tabTitle, mentionOf, openPlan, pasteBlocker, pickAgent, createPlan, menuHeight, menuItems, pathsOf, revealPlan, targetFolder,
 } from "../mods/file-actions/actions.js";
 
 const ids = (items) => items.map((it) => it.id);
@@ -219,4 +219,20 @@ test("open: a tab not registered yet is kept, and not reused", () => {
   const entries = { k1: { ...file("a.js"), space: "s1", tab: null, preview: true } };
   const r = planOpen(entries, live(), "s1", file("a.js"), false, "k2");
   assert.deepEqual([r.action, r.key], ["select", "k1"]);
+});
+
+test("claim: a new tab takes its own pane, never an earlier version's viewer", () => {
+  const entries = { k1: { ...file("a.js"), space: "s1", tab: null, preview: true } };
+  const tabs = [{ id: "old", name: "README.md" }, { id: "t1", name: "◌ a.js" }];
+  const panes = [{ mod: "file-actions", tab: "old" }, { mod: "file-actions", tab: "t1" }];
+  assert.equal(claimTab(entries, "k1", panes, tabs, "t1"), "t1");
+  assert.equal(claimTab(entries, "k1", panes, tabs, "x"), "t1");
+});
+
+test("claim: nothing when the pane isn't there yet or the name is ambiguous", () => {
+  const entries = { k1: { ...file("a.js"), space: "s1", tab: null, preview: true }, k2: { ...file("b.js"), space: "s1", tab: "t2", preview: false } };
+  assert.equal(claimTab(entries, "k1", [{ mod: "file-actions", tab: "old" }], [{ id: "old", name: "README.md" }], "old"), null);
+  const twins = [{ id: "t1", name: "◌ a.js" }, { id: "t3", name: "◌ a.js" }];
+  assert.equal(claimTab(entries, "k1", [{ mod: "file-actions", tab: "t1" }, { mod: "file-actions", tab: "t3" }], twins, "x"), null);
+  assert.equal(claimTab(entries, "k1", [{ mod: "file-actions", tab: "t2" }], [{ id: "t2", name: "◌ a.js" }], "t2"), null);
 });

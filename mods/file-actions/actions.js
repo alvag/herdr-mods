@@ -217,3 +217,18 @@ export function planOpen(entries, live, space, file, pin, newKey) {
   }
   return { entries: { ...kept, [newKey]: { ...shown, space, tab: null, preview: !pin } }, key: newKey, action: "new" };
 }
+
+// The tab a new file tab's viewer belongs to, or null when it can't tell yet.
+// Only a file-actions pane in an unclaimed tab named as tab.new named it; when
+// several match, the active tab (tab.new selects the new one). Never just the
+// first unclaimed viewer: one opened by an earlier version is never claimed.
+export function claimTab(entries, key, panes, tabs, activeTab) {
+  const entry = entries[key];
+  if (!entry) return null;
+  const claimed = new Set(Object.values(entries).map((e) => e.tab).filter(Boolean));
+  const title = tabTitle(entry.name, entry.preview);
+  const named = new Set(tabs.filter((x) => x.name === title).map((x) => x.id));
+  const mine = [...new Set(panes.filter((x) => x.mod === "file-actions" && !claimed.has(x.tab) && named.has(x.tab)).map((x) => x.tab))];
+  if (mine.length === 1) return mine[0];
+  return mine.includes(activeTab) ? activeTab : null;
+}

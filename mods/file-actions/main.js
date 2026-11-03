@@ -15,7 +15,7 @@ import {
   window as appWindow,
 } from "herdr";
 import {
-  checkName, copyPlan, createError, createPlan, deletePlan, languageOf, mentionOf, previewOf, menuItems, openPlan, pasteBlocker, pathsOf, pickAgent, revealPlan, targetFolder,
+  checkName, claimTab, copyPlan, createError, createPlan, deletePlan, languageOf, mentionOf, previewOf, menuItems, openPlan, pasteBlocker, pathsOf, pickAgent, revealPlan, targetFolder,
 } from "./actions.js";
 
 // Runs [program, args, options?]; resolves when it worked, else throws its reason.
@@ -138,16 +138,16 @@ export default class FileActions extends View {
     });
   }
 
-  // A new tab's entry has no tab id yet: claim the one file-actions tab no
-  // entry has, retrying while Herdr creates it.
+  // A new tab's entry has no tab id yet: claim this viewer's tab (claimTab),
+  // retrying while Herdr creates it.
   register(cx) {
     const key = props().key;
     const tryOnce = (left) => {
       const all = shared(TABS) ?? {}, entry = all[key];
       if (!entry || entry.tab) return;
-      const claimed = new Set(Object.values(all).map((e) => e.tab).filter(Boolean));
-      const pane = panes().find((x) => x.mod === "file-actions" && !claimed.has(x.tab));
-      if (pane) setShared(TABS, { ...all, [key]: { ...entry, tab: pane.tab } });
+      const space = spaces().find((s) => s.id === entry.space);
+      const tab = claimTab(all, key, panes(), space?.tabs ?? [], focused()?.tab);
+      if (tab) setShared(TABS, { ...all, [key]: { ...entry, tab } });
       else if (left > 0) cx.timer.after(100, () => tryOnce(left - 1));
     };
     tryOnce(20);
