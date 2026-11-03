@@ -22,7 +22,7 @@ Run it again to update; patches already applied are skipped.
 | Click a file already open | Selects its tab, never a second one |
 | Double-click a file | Pins its tab (`<name>`, no `◌`); the next file gets a new preview tab |
 
-**Copy with context**: in a file tab, select text, press ⌘C, then ⌘⌥C (Windows: Ctrl+C, then Ctrl+Alt+C). The clipboard becomes:
+**Copy with context**: in a file tab, select text, press ⌘C, then ⌘⌥C (Windows: Ctrl+C, then Ctrl+Alt+C). Windows line endings are fine, and text holding ``` gets a longer fence. The clipboard becomes:
 
 ````
 File: biome.json

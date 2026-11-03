@@ -255,13 +255,17 @@ export function pastePlan(platform) {
 // copied text in the file: the first place when it's there more than once
 // (unique: false). null when it isn't in the file.
 export function contextOf(fileText, copied, path) {
-  const body = copied.replace(/\r?\n$/, "");
-  const at = body ? fileText.indexOf(body) : -1;
+  // Line endings differ between the file and the clipboard on Windows.
+  const text = fileText.replace(/\r\n/g, "\n");
+  const body = copied.replace(/\r\n/g, "\n").replace(/\n$/, "");
+  const at = body ? text.indexOf(body) : -1;
   if (at < 0) return null;
-  const first = fileText.slice(0, at).split("\n").length;
+  const first = text.slice(0, at).split("\n").length;
   const last = first + body.split("\n").length - 1;
   const name = path.split("/").pop();
   const ext = name.includes(".") ? name.split(".").pop() : "";
   const lines = first === last ? `Line: ${first}` : `Lines: ${first}-${last}`;
-  return { text: `File: ${path}\n${lines}\n\n\`\`\`${ext}\n${body}\n\`\`\``, unique: fileText.indexOf(body, at + 1) < 0 };
+  // A fence longer than any run of backticks inside, so the text can't close it.
+  const fence = "`".repeat(Math.max(3, ...(body.match(/`+/g) ?? []).map((run) => run.length + 1)));
+  return { text: `File: ${path}\n${lines}\n\n${fence}${ext}\n${body}\n${fence}`, unique: text.indexOf(body, at + 1) < 0 };
 }

@@ -278,3 +278,15 @@ test("paste: pbpaste with UTF-8 on macOS, Get-Clipboard as UTF-8 on Windows, non
   assert.deepEqual(pastePlan("windows"), ["powershell", ["-NoProfile", "-Command", "[Console]::OutputEncoding = [Text.Encoding]::UTF8; Get-Clipboard -Raw"]]);
   assert.equal(pastePlan("linux"), null);
 });
+
+test("context: text with ``` gets a longer fence", () => {
+  const md = "# Install\n\n```sh\nnpm test\n```\n";
+  assert.equal(contextOf(md, "```sh\nnpm test\n```", "README.md").text,
+    "File: README.md\nLines: 3-5\n\n````md\n```sh\nnpm test\n```\n````");
+});
+
+test("context: Windows line endings in the file or the clipboard still match", () => {
+  const crlf = "a\r\nb\r\nc\r\n";
+  assert.equal(contextOf(crlf, "b\nc", "f.txt").text, "File: f.txt\nLines: 2-3\n\n```txt\nb\nc\n```");
+  assert.equal(contextOf("a\nb\nc\n", "b\r\nc\r\n", "f.txt").text, "File: f.txt\nLines: 2-3\n\n```txt\nb\nc\n```");
+});
