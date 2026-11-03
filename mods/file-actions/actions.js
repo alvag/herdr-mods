@@ -187,3 +187,33 @@ export function previewOf(text) {
   if (text.includes("\0")) return { error: "Binary file · no text preview" };
   return { value: text.length > MAX_TEXT ? text.slice(0, MAX_TEXT) + "\n… (file truncated)" : text };
 }
+
+// A preview tab (opened with one click, reused by the next one) is marked in
+// its name; Herdr's tab bar draws names as plain text, so no italics.
+export function tabTitle(name, preview) {
+  return preview ? `◌ ${name}` : name;
+}
+
+// Which tab a click on a file opens. `entries` is shared("file-actions.tabs"):
+// { [key]: { view, root, on, name, space, tab, preview } }, one per file tab,
+// `tab` null until its viewer registers. `live` holds the tab ids that still
+// exist; `pin` is a double click. Returns the new entries, the entry's key,
+// and what to do: "select" its tab, "replace" what the preview tab shows, or
+// make a "new" tab; `rename` when the tab's name changes.
+export function planOpen(entries, live, space, file, pin, newKey) {
+  const kept = Object.fromEntries(Object.entries(entries).filter(([, e]) => e.tab === null || live.has(e.tab)));
+  const same = (e) => e.space === space && e.view === file.view && e.root === file.root && (e.on ?? null) === (file.on ?? null);
+  const open = Object.keys(kept).find((k) => same(kept[k]));
+  if (open) {
+    if (!pin || !kept[open].preview) return { entries: kept, key: open, action: "select" };
+    const e = { ...kept[open], preview: false };
+    return { entries: { ...kept, [open]: e }, key: open, action: "select", rename: tabTitle(e.name, false) };
+  }
+  const shown = { view: file.view, root: file.root, on: file.on ?? null, name: file.name };
+  const preview = Object.keys(kept).find((k) => kept[k].space === space && kept[k].preview && kept[k].tab);
+  if (preview) {
+    const e = { ...kept[preview], ...shown };
+    return { entries: { ...kept, [preview]: e }, key: preview, action: "replace", rename: tabTitle(e.name, true) };
+  }
+  return { entries: { ...kept, [newKey]: { ...shown, space, tab: null, preview: !pin } }, key: newKey, action: "new" };
+}

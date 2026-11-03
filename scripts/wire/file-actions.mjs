@@ -3,7 +3,7 @@
 // Herdr's own `files` mod is read-only, so this clones it as `my-files` and
 // points the `my-main` layout (cloned from `main` if needed) at it. The clone
 // doesn't receive Herdr's updates: see docs/file-actions.md.
-import { cpSync, existsSync } from "node:fs";
+import { cpSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -20,6 +20,7 @@ export default function wire({ home, herdr, patch }) {
   // A mod can't import from another mod's folder: the clone gets its own copy,
   // refreshed on every install.
   cpSync(join(repo, "mods", MOD, "actions.js"), join(home, "mods", FILES, `${MOD}.js`));
+  cpSync(join(repo, "mods", MOD, "panel.js"), join(home, "mods", FILES, `${MOD}-panel.js`));
 
   const files = join(home, "mods", FILES, "main.js");
   patch(files, `from "./${MOD}.js"`,
@@ -32,14 +33,23 @@ import { menuHeight } from "./${MOD}.js";`);
         .on_mouse_down("right", () => openOverlay({ mod: "${MOD}", kind: "popup", width: 230, height: menuHeight(window()?.platform, this.on),
           props: { root: this.root, path, dir: entry.dir, on: this.on } }))`);
 
-  // A click on a file opens it as a whole tab instead of the panel's small preview.
-  patch(files, `openOverlay, run } from "herdr"`,
-    `window, openOverlay } from "herdr";`,
-    `window, openOverlay, run } from "herdr";`);
-  patch(files, `mod: "${MOD}", props: { view: path`,
-    `        .on_click((_e, cx) => entry.dir ? this.toggle(path, cx) : this.show(path, cx))`,
-    `        .on_click((_e, cx) => entry.dir ? this.toggle(path, cx)
-          : run("tab.new", { name: entry.name, mod: "${MOD}", props: { view: path, root: this.root, on: this.on } }))`);
+  // A click on a file opens it in a tab instead of the panel's small preview: the
+  // space's preview tab, reused by the next click; a double click pins it.
+  const click = `        .on_click((_e, cx) => entry.dir ? this.toggle(path, cx) : this.show(path, cx))`;
+  const text = readFileSync(files, "utf8"), before = `
+          : run("tab.new", { name: entry.name, mod: "${MOD}", props: { view: path, root: this.root, on: this.on } }))`;
+  // Installed by an earlier version (one tab per click): put Herdr's line back first.
+  if (text.includes(before)) writeFileSync(files, text.replace(`        .on_click((_e, cx) => entry.dir ? this.toggle(path, cx)${before}`, click));
+  patch(files, `${MOD}-panel.js`,
+    `import { menuHeight } from "./${MOD}.js";`,
+    `import { menuHeight } from "./${MOD}.js";
+import { openFile } from "./${MOD}-panel.js";`);
+  patch(files, `viewerLocation }`,
+    `import { openFile } from "./${MOD}-panel.js";`,
+    `import { openFile, viewerLocation } from "./${MOD}-panel.js";`);
+  patch(files, `openFile(path,`,
+    click,
+    `        .on_click((e, cx) => entry.dir ? this.toggle(path, cx) : openFile(path, entry.name, e.click_count === 2, this.root, this.on))`);
 
   // A viewer tab has no folder, so the panel would fall back to the space's:
   // keep showing the folder the file came from.
@@ -51,6 +61,11 @@ function location() {`);
     `  return { cwd: pane?.cwd || f?.cwd || space?.folder, on, space: space?.id };`,
     `  if (pane?.mod === "${MOD}" && lastLocation?.space === space?.id) return lastLocation;
   return (lastLocation = { cwd: pane?.cwd || f?.cwd || space?.folder, on, space: space?.id });`);
+  // Better than the last folder: the focused file tab's own root.
+  patch(files, `viewerLocation(f?.tab`,
+    `  if (pane?.mod === "${MOD}" && lastLocation`,
+    `  if (pane?.mod === "${MOD}") { const v = viewerLocation(f?.tab, space?.id); if (v) return (lastLocation = v); }
+  if (pane?.mod === "${MOD}" && lastLocation`);
 
   patch(join(home, "layouts", `${LAYOUT}.json`), `"mod": "${FILES}"`,
     `"mod": "files"`,

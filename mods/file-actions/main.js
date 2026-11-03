@@ -4,13 +4,15 @@
 //   popup  { root, path, dir, on }               the menu for one entry
 //   dialog { create: "file" | "folder", root, folder, on }   the name of a new entry
 //   dialog { remove: true, root, path, dir }     confirms moving an entry to the Trash
-//   tab    { view: path, root, on }              a file, read-only, as a whole tab (tab.new)
+//   tab    { key }                               a file, read-only, as a whole tab (tab.new); which
+//                                                file is shared("file-actions.tabs")[key] (see panel.js)
 // `root` is the panel's folder, `path` the entry relative to it ("/" separated),
 // `on` the machine of a space on another computer (null here).
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input, Editor, EditorState } from "gpui-base";
 import {
-  agents, closeOverlay, exec, focused, notify, openOverlay, panes, props, readTextFile, run, settings, spaces, theme, watchFolder, window as appWindow,
+  agents, closeOverlay, exec, focused, notify, openOverlay, panes, props, readTextFile, run, setShared, settings, shared, spaces, theme, watchFolder,
+  window as appWindow,
 } from "herdr";
 import {
   checkName, copyPlan, createError, createPlan, deletePlan, languageOf, mentionOf, previewOf, menuItems, openPlan, pasteBlocker, pathsOf, pickAgent, revealPlan, targetFolder,
@@ -33,6 +35,8 @@ async function attemptAll(plan) {
   throw last;
 }
 
+const TABS = "file-actions.tabs";
+
 const fail = (title, e) => notify({ title, body: e?.message ?? String(e), level: "error" });
 
 function button(t, id, text, primary, action) {
@@ -48,7 +52,8 @@ export default class FileActions extends View {
     this.platform = appWindow()?.platform;
     this.handle = cx.focus_handle();
     this.at = 0;
-    if (p.view) return this.watch(cx);
+    if (p.key) return this.register(cx);
+    if (p.view) return;
     if (p.create) {
       this.name = "";
       this.error = null;
@@ -133,25 +138,45 @@ export default class FileActions extends View {
     });
   }
 
-  // Loads the file, then again whenever its folder changes (on this computer;
-  // another machine's file loads once).
-  watch(cx) {
-    const p = props();
-    const full = `${p.root}/${p.view}`, folder = full.slice(0, full.lastIndexOf("/"));
+  // A new tab's entry has no tab id yet: claim the one file-actions tab no
+  // entry has, retrying while Herdr creates it.
+  register(cx) {
+    const key = props().key;
+    const tryOnce = (left) => {
+      const all = shared(TABS) ?? {}, entry = all[key];
+      if (!entry || entry.tab) return;
+      const claimed = new Set(Object.values(all).map((e) => e.tab).filter(Boolean));
+      const pane = panes().find((x) => x.mod === "file-actions" && !claimed.has(x.tab));
+      if (pane) setShared(TABS, { ...all, [key]: { ...entry, tab: pane.tab } });
+      else if (left > 0) cx.timer.after(100, () => tryOnce(left - 1));
+    };
+    tryOnce(20);
+  }
+
+  // Shows the entry's file, again whenever its folder changes (on this
+  // computer; another machine's file loads once). A preview tab's file changes:
+  // `gen` stops the loop of the file shown before.
+  follow(entry, cx) {
+    const gen = (this.gen = (this.gen ?? 0) + 1);
+    this.loaded = false;
+    const full = `${entry.root}/${entry.view}`, folder = full.slice(0, full.lastIndexOf("/"));
     cx.spawn(async (cx) => {
       for (;;) {
-        await this.load(full, p.on);
+        await this.load(full, entry.on, gen);
+        if (gen !== this.gen) return;
         cx.notify();
-        if (p.on) return;
+        if (entry.on) return;
         try { await watchFolder(folder); } catch { return; }
+        if (gen !== this.gen) return;
       }
     });
   }
 
-  async load(full, on) {
+  async load(full, on, gen) {
     let text, failure = null;
     try { text = await readTextFile(full, { on: on ?? null }); }
     catch (e) { failure = `Cannot preview this file: ${e?.message ?? e}`; }
+    if (gen !== this.gen) return;
     if (!failure && this.loaded && text === this.text) return;
     this.loaded = true;
     this.text = text;
@@ -168,16 +193,20 @@ export default class FileActions extends View {
 
   render(cx) {
     const p = props() ?? {};
-    return p.view ? this.viewer() : p.create ? this.dialog() : p.remove ? this.confirm() : this.menu();
+    return p.key || p.view ? this.viewer(cx) : p.create ? this.dialog() : p.remove ? this.confirm() : this.menu();
   }
 
-  viewer() {
-    const t = theme(), p = props();
+  viewer(cx) {
+    // A tab opened by an earlier version names its file in its props.
+    const t = theme(), p = props(), entry = p.view ? { view: p.view, root: p.root, on: p.on } : (shared(TABS) ?? {})[p.key];
+    if (!entry) return div().size_full().p(12).bg(t.background).text_color(t.dim).child("This file tab is no longer tracked. Close it and open the file again.");
+    const showing = `${entry.on ?? ""}|${entry.root}/${entry.view}`;
+    if (showing !== this.showing) { this.showing = showing; this.follow(entry, cx); }
     return v_flex().id("file-actions-view").size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background)
       .border_1().border_color(t.border).text_color(t.foreground).text_size(13)
       .child(h_flex().h(36).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
-        .child(div().flex_1().min_w(0).truncate().font_semibold().child(p.view))
-        .child(div().flex_none().text_size(12).text_color(t.dim).child(p.root.split(/[\\/]/).pop())))
+        .child(div().flex_1().min_w(0).truncate().font_semibold().child(entry.view))
+        .child(div().flex_none().text_size(12).text_color(t.dim).child(entry.root.split(/[\\/]/).pop())))
       .child(this.code ? Editor.new(this.code).flex_1().min_h(0)
         : div().p(12).text_color(t.dim).child(this.viewError ?? "Loading file…"));
   }

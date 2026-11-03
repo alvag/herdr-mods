@@ -13,7 +13,16 @@ Run it again to update; patches already applied are skipped.
 
 ## What it does
 
-**Click a file**: it opens in a new tab named after it, read-only, with syntax highlighting and line numbers (the panel's own small preview is gone). It reloads when the file changes on disk (on this computer). The Files panel keeps showing the folder the file came from. Clicking the same file again opens another tab.
+**Click a file** to read it in a tab, read-only, with syntax highlighting and line numbers and the whole width (the panel's own small preview is gone). Tabs work like an editor's preview:
+
+| Action | Result |
+|---|---|
+| Click a file | Shows it in the space's preview tab, `◌ <name>`; makes one when there's none |
+| Click another file | Shows it in that same preview tab |
+| Click a file already open | Selects its tab, never a second one |
+| Double-click a file | Pins its tab (`<name>`, no `◌`); the next file gets a new preview tab |
+
+The `◌` stands for italics: Herdr's tab bar draws names as plain text, and italics would mean cloning it too. A tab reloads when its file changes on disk (on this computer). While a file tab is focused, the Files panel keeps showing that file's folder. Which file each tab shows lives in `shared("file-actions.tabs")`; closed tabs are dropped from it on the next click.
 
 **Right-click** a file or folder:
 
@@ -47,8 +56,8 @@ On Windows, paths reach PowerShell as UTF-8 base64, never inside its source: Pow
 ## Wiring (`scripts/wire/file-actions.mjs`)
 
 1. Clones Herdr's read-only `files` mod as `my-files`, and the `main` layout as `my-main`, if they don't exist yet.
-2. Copies `mods/file-actions/actions.js` into `my-files/file-actions.js` on every install. A mod can't import from another mod's folder; the clone uses it to size the popup.
-3. Patches `my-files`: each row opens `file-actions` as a popup on right-click; a click on a file opens it as a tab (`tab.new` with `file-actions` as its only pane); while that tab is focused, the panel keeps its folder (`location()`).
+2. Copies `mods/file-actions/actions.js` into `my-files/file-actions.js` and `mods/file-actions/panel.js` into `my-files/file-actions-panel.js` on every install. A mod can't import from another mod's folder; the clone uses them to size the popup, open files in tabs, and find a file tab's folder.
+3. Patches `my-files`: each row opens `file-actions` as a popup on right-click; a click on a file calls `openFile()` (preview tab, pin, no duplicates); while a file tab is focused, `location()` returns that file's folder. An install from an earlier version, with one new tab per click, is moved over.
 4. Points `my-main`'s Files panel at `my-files`, switches to `my-main`; the installer then checks `my-files` too.
 
 `my-main` is shared with [`open-in-editor`](open-in-editor.md); each one patches only its own part.
@@ -77,7 +86,7 @@ grep -A3 cloned_from $H/mods/my-files/mod.json   # the version my-files was clon
 diff $H/mods/files/main.js $H/mods/my-files/main.js
 ```
 
-The `diff` should show only this mod's patches: the `openOverlay` / `run` / `menuHeight` imports, `lastLocation` in `location()`, the row's `.on_click` (`tab.new`) and `.on_mouse_down("right", …)`, and the icon paths Herdr rewrites to `mods/my-files/` when it clones. Anything else means Herdr changed the Files panel. Then clone it again:
+The `diff` should show only this mod's patches: the `openOverlay` / `run` / `menuHeight` / `openFile, viewerLocation` imports, `lastLocation` and `viewerLocation` in `location()`, the row's `.on_click` (`openFile`) and `.on_mouse_down("right", …)`, and the icon paths Herdr rewrites to `mods/my-files/` when it clones. Anything else means Herdr changed the Files panel. Then clone it again:
 
 ```sh
 rm -rf ~/.config/herdr-app/mods/my-files

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  checkName, copyPlan, createError, deletePlan, languageOf, previewOf, mentionOf, openPlan, pasteBlocker, pickAgent, createPlan, menuHeight, menuItems, pathsOf, revealPlan, targetFolder,
+  checkName, copyPlan, createError, deletePlan, languageOf, planOpen, previewOf, tabTitle, mentionOf, openPlan, pasteBlocker, pickAgent, createPlan, menuHeight, menuItems, pathsOf, revealPlan, targetFolder,
 } from "../mods/file-actions/actions.js";
 
 const ids = (items) => items.map((it) => it.id);
@@ -167,4 +167,56 @@ test("viewer: text as is, a gone or binary file says so, a big one is cut", () =
   const big = previewOf("x".repeat(400001));
   assert.equal(big.value.length, 400000 + "\n… (file truncated)".length);
   assert.equal(big.value.endsWith("… (file truncated)"), true);
+});
+
+test("tab title: a preview tab is marked, a pinned one isn't", () => {
+  assert.equal(tabTitle("install.sh", true), "◌ install.sh");
+  assert.equal(tabTitle("install.sh", false), "install.sh");
+});
+
+const file = (view, name = view.split("/").pop()) => ({ view, root: "/r", on: null, name });
+const live = (...ids) => new Set(ids);
+
+test("open: the first click makes a preview tab", () => {
+  const r = planOpen({}, live(), "s1", file("a.js"), false, "k1");
+  assert.equal(r.action, "new");
+  assert.equal(r.key, "k1");
+  assert.deepEqual(r.entries.k1, { view: "a.js", root: "/r", on: null, name: "a.js", space: "s1", tab: null, preview: true });
+});
+
+test("open: another file reuses the space's preview tab and renames it", () => {
+  const entries = { k1: { ...file("a.js"), space: "s1", tab: "t1", preview: true } };
+  const r = planOpen(entries, live("t1"), "s1", file("b/c.md"), false, "k2");
+  assert.deepEqual([r.action, r.key, r.rename], ["replace", "k1", "◌ c.md"]);
+  assert.equal(r.entries.k1.view, "b/c.md");
+  assert.equal(r.entries.k2, undefined);
+});
+
+test("open: a file already open selects its tab, no duplicate", () => {
+  const entries = { k1: { ...file("a.js"), space: "s1", tab: "t1", preview: false }, k2: { ...file("b.js"), space: "s1", tab: "t2", preview: true } };
+  const r = planOpen(entries, live("t1", "t2"), "s1", file("a.js"), false, "k3");
+  assert.deepEqual([r.action, r.key, r.rename], ["select", "k1", undefined]);
+  assert.deepEqual(r.entries, entries);
+});
+
+test("open: a double click pins the preview tab; the next file gets a new preview", () => {
+  const entries = { k1: { ...file("a.js"), space: "s1", tab: "t1", preview: true } };
+  const pinned = planOpen(entries, live("t1"), "s1", file("a.js"), true, "k2");
+  assert.deepEqual([pinned.action, pinned.key, pinned.rename, pinned.entries.k1.preview], ["select", "k1", "a.js", false]);
+  const next = planOpen(pinned.entries, live("t1"), "s1", file("b.js"), false, "k3");
+  assert.deepEqual([next.action, next.key], ["new", "k3"]);
+});
+
+test("open: closed tabs are forgotten; each space has its own preview tab", () => {
+  const entries = { k1: { ...file("a.js"), space: "s1", tab: "t1", preview: true }, k2: { ...file("a.js"), space: "s2", tab: "t2", preview: true } };
+  const r = planOpen(entries, live("t2"), "s1", file("a.js"), false, "k3");
+  assert.deepEqual([r.action, r.key], ["new", "k3"]);
+  assert.equal(r.entries.k1, undefined);
+  assert.equal(r.entries.k2.tab, "t2");
+});
+
+test("open: a tab not registered yet is kept, and not reused", () => {
+  const entries = { k1: { ...file("a.js"), space: "s1", tab: null, preview: true } };
+  const r = planOpen(entries, live(), "s1", file("a.js"), false, "k2");
+  assert.deepEqual([r.action, r.key], ["select", "k1"]);
 });
