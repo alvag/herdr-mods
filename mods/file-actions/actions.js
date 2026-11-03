@@ -28,17 +28,25 @@ function literal(text) {
   return `([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${b64}')))`;
 }
 
-// Rows in order; `copy` and `reveal` need this computer's clipboard and file manager.
+// Rows in groups, a separator between groups. `copy`, `reveal` and `send-agent`
+// need this computer's clipboard or file manager; the editors and `reveal` need
+// the entry on this computer; deleting only where it can be undone (this
+// computer's Trash or Recycle Bin).
 export function menuItems(platform, on) {
-  const desk = DESKTOP.includes(platform);
-  return [
-    ...(desk ? [{ id: "copy", label: "Copy path", icon: "files" }, { id: "copy-relative", label: "Copy relative path", icon: "file-text" }] : []),
-    ...(desk && !on ? [{ id: "reveal", label: `Reveal in ${platform === "windows" ? "Explorer" : "Finder"}`, icon: "folder" }] : []),
-    { id: "new-file", label: "New file…", icon: "plus", separated: desk },
-    { id: "new-folder", label: "New folder…", icon: "folder-plus" },
-    // Only where it can be undone: this computer's Trash or Recycle Bin.
-    ...(desk && !on ? [{ id: "delete", label: platform === "windows" ? "Move to Recycle Bin" : "Move to Trash", icon: "x", separated: true }] : []),
-  ];
+  const desk = DESKTOP.includes(platform), here = !on;
+  const groups = [
+    [
+      ...(desk ? [{ id: "copy", label: "Copy path", icon: "files" }, { id: "copy-relative", label: "Copy relative path", icon: "file-text" }] : []),
+      ...(desk && here ? [{ id: "reveal", label: `Reveal in ${platform === "windows" ? "Explorer" : "Finder"}`, icon: "folder" }] : []),
+    ],
+    [
+      ...(here ? [{ id: "open-vscode", label: "Open in VS Code", icon: "panel-right" }, { id: "open-webstorm", label: "Open in WebStorm", icon: "panel-right" }] : []),
+      ...(desk ? [{ id: "send-agent", label: "Send to agent", icon: "terminal" }] : []),
+    ],
+    [{ id: "new-file", label: "New file…", icon: "plus" }, { id: "new-folder", label: "New folder…", icon: "folder-plus" }],
+    desk && here ? [{ id: "delete", label: platform === "windows" ? "Move to Recycle Bin" : "Move to Trash", icon: "x" }] : [],
+  ].filter((g) => g.length);
+  return groups.flatMap((g, i) => g.map((it, j) => (i > 0 && j === 0 ? { ...it, separated: true } : it)));
 }
 
 // Popup height: 31 px rows, 5 px padding top and bottom, 9 px per separator.
@@ -111,4 +119,41 @@ export function deletePlan(full, platform) {
     `$ErrorActionPreference = 'Stop'; Add-Type -AssemblyName Microsoft.VisualBasic; $p = ${literal(full)}; $fs = [Microsoft.VisualBasic.FileIO.FileSystem]; ` +
     `if (Test-Path -LiteralPath $p -PathType Container) { $fs::DeleteDirectory($p, 'OnlyErrorDialogs', 'SendToRecycleBin') } else { $fs::DeleteFile($p, 'OnlyErrorDialogs', 'SendToRecycleBin') }`]]];
   return [];
+}
+
+// Editors a file opens in; the same table and launch order as open-in-editor
+// (a mod can't import from another mod's folder).
+const EDITORS = {
+  vscode: { app: "Visual Studio Code", cli: "code" },
+  webstorm: { app: "WebStorm", cli: "webstorm" },
+};
+
+// The commands to try in order, each [program, args], that open an entry in an
+// editor. A file goes with its project's folder (`root`), so it opens in that
+// project's window instead of whichever one was last used; a folder (root null)
+// opens alone, as its own project.
+export function openPlan(editor, full, platform, root) {
+  const e = EDITORS[editor] ?? EDITORS.vscode;
+  const paths = root ? [root, full] : [full];
+  if (platform === "macos") return [["open", ["-a", e.app, ...paths]], [e.cli, paths]];
+  if (platform === "windows") return [[`${e.cli}.cmd`, paths], [e.cli, paths]];
+  return [[e.cli, paths]];
+}
+
+// How an agent's prompt names the entry: `@` and its path relative to the agent's
+// folder when inside it, else the full path; quoted when it has spaces. Ends with a
+// space so the person can keep typing.
+export function mentionOf(full, cwd) {
+  const base = cwd?.replace(/[\\/]+$/, "");
+  const sep = full.includes("\\") ? "\\" : "/";
+  const path = base && full.startsWith(base + sep) ? full.slice(base.length + 1) : full;
+  return `@${path.includes(" ") ? `"${path}"` : path} `;
+}
+
+// The agent a path goes to, from agents() for a space: its focused agent, else
+// one in the active tab, else the one that changed last; null when it has none.
+export function pickAgent(agents, space, tab) {
+  const mine = agents.filter((a) => a.space === space);
+  return mine.find((a) => a.focused) ?? mine.find((a) => a.tab === tab)
+    ?? mine.reduce((best, a) => (!best || a.seq > best.seq ? a : best), null);
 }

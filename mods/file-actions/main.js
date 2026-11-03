@@ -8,8 +8,10 @@
 // `on` the machine of a space on another computer (null here).
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
-import { closeOverlay, exec, notify, openOverlay, props, theme, window as appWindow } from "herdr";
-import { checkName, copyPlan, createError, createPlan, deletePlan, menuItems, pathsOf, revealPlan, targetFolder } from "./actions.js";
+import { agents, closeOverlay, exec, focused, notify, openOverlay, panes, props, run, spaces, theme, window as appWindow } from "herdr";
+import {
+  checkName, copyPlan, createError, createPlan, deletePlan, mentionOf, menuItems, openPlan, pathsOf, pickAgent, revealPlan, targetFolder,
+} from "./actions.js";
 
 // Runs [program, args, options?]; resolves when it worked, else throws its reason.
 async function attempt([cmd, args, opts], on) {
@@ -56,7 +58,8 @@ export default class FileActions extends View {
 
   choose(item, cx) {
     const p = props();
-    closeOverlay(p.overlay);
+    // Send to agent waits on this popup's timer, which stops once it closes.
+    if (item.id !== "send-agent") closeOverlay(p.overlay);
     const { full, relative } = pathsOf(p.root, p.path, this.platform, p.on);
     if (item.id === "copy" || item.id === "copy-relative") {
       const text = item.id === "copy" ? full : relative;
@@ -64,6 +67,15 @@ export default class FileActions extends View {
       cx.spawn(async () => {
         try { await attempt(copyPlan(text, this.platform)); notify({ title: "Copied", body: text, level: "success", timeout: 2000 }); }
         catch (e) { fail("Could not copy", e); }
+      });
+    } else if (item.id === "open-vscode" || item.id === "open-webstorm") {
+      const editor = item.id === "open-vscode" ? "VS Code" : "WebStorm";
+      const root = p.dir ? null : pathsOf(p.root, "", this.platform, p.on).full;
+      cx.spawn(async () => { try { await attemptAll(openPlan(item.id.slice(5), full, this.platform, root)); } catch (e) { fail(`Could not open ${editor}`, e); } });
+    } else if (item.id === "send-agent") {
+      cx.spawn(async (cx) => {
+        try { await this.sendToAgent(full, cx); } catch (e) { fail("Could not send to the agent", e); }
+        finally { closeOverlay(p.overlay); }
       });
     } else if (item.id === "delete") {
       openOverlay({ mod: "file-actions", kind: "dialog", width: 420, height: 168,
@@ -87,6 +99,22 @@ export default class FileActions extends View {
       try { await attempt(createPlan(p.create, full, this.platform, p.on), p.on); closeOverlay(p.overlay); }
       catch (e) { this.error = createError(e?.message ?? String(e), this.name.trim()); cx.notify(); }
     });
+  }
+
+  // Herdr can't type into a terminal without pressing Enter, so the mention goes
+  // through the clipboard: copy it, focus the agent, paste. It stays unsent.
+  async sendToAgent(full, cx) {
+    const f = focused(), space = spaces().find((s) => s.active);
+    const tab = f?.pane ? panes().find((x) => x.pane === f.pane)?.tab : null;
+    const agent = pickAgent(agents(), space?.id, tab);
+    if (!agent) return notify({ title: "No agent in this space", body: "Start one, then send the path again.", level: "warning" });
+    const text = mentionOf(full, panes().find((x) => x.pane === agent.pane)?.cwd);
+    await attempt(copyPlan(text, this.platform));
+    // pane.focus applies a moment later; pasting before that lands in the Files panel.
+    run("pane.focus", { terminal: agent.address });
+    for (let i = 0; i < 20 && focused()?.pane !== agent.pane; i++) await new Promise((done) => cx.timer.after(50, done));
+    if (focused()?.pane !== agent.pane) throw new Error(`Could not focus ${agent.address}. The path is on the clipboard.`);
+    run("terminal.paste", {});
   }
 
   remove(cx) {

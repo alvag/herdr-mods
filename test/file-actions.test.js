@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  checkName, copyPlan, createError, deletePlan, createPlan, menuHeight, menuItems, pathsOf, revealPlan, targetFolder,
+  checkName, copyPlan, createError, deletePlan, mentionOf, openPlan, pickAgent, createPlan, menuHeight, menuItems, pathsOf, revealPlan, targetFolder,
 } from "../mods/file-actions/actions.js";
 
 const ids = (items) => items.map((it) => it.id);
@@ -9,22 +9,22 @@ const ids = (items) => items.map((it) => it.id);
 const decoded = (s) => `([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${Buffer.from(s, "utf8").toString("base64")}')))`;
 
 test("menu: copy and reveal, new file and folder, then delete on macOS and Windows", () => {
-  assert.deepEqual(ids(menuItems("macos", null)), ["copy", "copy-relative", "reveal", "new-file", "new-folder", "delete"]);
+  assert.deepEqual(ids(menuItems("macos", null)),
+    ["copy", "copy-relative", "reveal", "open-vscode", "open-webstorm", "send-agent", "new-file", "new-folder", "delete"]);
   assert.equal(menuItems("macos", null)[2].label, "Reveal in Finder");
   assert.equal(menuItems("windows", null)[2].label, "Reveal in Explorer");
-  assert.equal(menuItems("macos", null)[5].label, "Move to Trash");
-  assert.equal(menuItems("windows", null)[5].label, "Move to Recycle Bin");
+  assert.equal(menuItems("macos", null)[8].label, "Move to Trash");
+  assert.equal(menuItems("windows", null)[8].label, "Move to Recycle Bin");
 });
 
 test("menu: no reveal or delete on another machine, no copy, reveal or delete on Linux", () => {
-  assert.deepEqual(ids(menuItems("macos", "devbox")), ["copy", "copy-relative", "new-file", "new-folder"]);
-  assert.deepEqual(ids(menuItems("linux", null)), ["new-file", "new-folder"]);
+  assert.deepEqual(ids(menuItems("macos", "devbox")), ["copy", "copy-relative", "send-agent", "new-file", "new-folder"]);
 });
 
 test("menu height fits its rows (31 px), padding and the separator", () => {
-  assert.equal(menuHeight("macos", null), 10 + 6 * 31 + 2 * 9);
-  assert.equal(menuHeight("macos", "devbox"), 10 + 4 * 31 + 9);
-  assert.equal(menuHeight("linux", null), 10 + 2 * 31);
+  assert.equal(menuHeight("macos", null), 10 + 9 * 31 + 3 * 9);
+  assert.equal(menuHeight("macos", "devbox"), 10 + 5 * 31 + 2 * 9);
+  assert.equal(menuHeight("linux", null), 10 + 4 * 31 + 9);
 });
 
 test("full and relative paths, relative to the panel's root", () => {
@@ -108,4 +108,40 @@ test("delete: to the Recycle Bin on Windows, the path as base64; none elsewhere"
   assert.equal(args[2].includes("SendToRecycleBin"), true);
   assert.equal(args[2].startsWith("$ErrorActionPreference = 'Stop'"), true);
   assert.deepEqual(deletePlan("/x", "linux"), []);
+});
+
+test("menu: Linux keeps the editor rows, no Send to agent (no clipboard)", () => {
+  assert.deepEqual(ids(menuItems("linux", null)), ["open-vscode", "open-webstorm", "new-file", "new-folder"]);
+});
+
+test("open in an editor: a file inside its project, as open-in-editor launches", () => {
+  assert.deepEqual(openPlan("webstorm", "/r/a b.md", "macos", "/r"),
+    [["open", ["-a", "WebStorm", "/r", "/r/a b.md"]], ["webstorm", ["/r", "/r/a b.md"]]]);
+  assert.deepEqual(openPlan("vscode", "C:\\r\\a", "windows", "C:\\r"), [["code.cmd", ["C:\\r", "C:\\r\\a"]], ["code", ["C:\\r", "C:\\r\\a"]]]);
+  assert.deepEqual(openPlan("vscode", "/r/a", "linux", "/r"), [["code", ["/r", "/r/a"]]]);
+});
+
+test("open in an editor: a folder alone, as its own project", () => {
+  assert.deepEqual(openPlan("vscode", "/r/docs", "macos", null), [["open", ["-a", "Visual Studio Code", "/r/docs"]], ["code", ["/r/docs"]]]);
+});
+
+test("mention: relative to the agent's folder when inside it, else the full path", () => {
+  assert.equal(mentionOf("/r/scripts/install.mjs", "/r"), "@scripts/install.mjs ");
+  assert.equal(mentionOf("/r/scripts/install.mjs", "/r/"), "@scripts/install.mjs ");
+  assert.equal(mentionOf("/r2/x.md", "/r"), "@/r2/x.md ");
+  assert.equal(mentionOf("/r/x.md", null), "@/r/x.md ");
+  assert.equal(mentionOf("C:\\r\\a\\b.md", "C:\\r"), "@a\\b.md ");
+});
+
+test("mention: a path with spaces is quoted", () => {
+  assert.equal(mentionOf("/r/my docs/a.md", "/r"), '@"my docs/a.md" ');
+});
+
+test("agent: the focused one in the space, else the active tab's, else the latest", () => {
+  const a = (address, space, tab, extra = {}) => ({ address, space, tab, seq: 0, focused: false, ...extra });
+  const list = [a("t1", "s1", "x", { seq: 9 }), a("t2", "s2", "y", { seq: 1 }), a("t3", "s2", "z", { seq: 5 }), a("t4", "s2", "y", { focused: true })];
+  assert.equal(pickAgent(list, "s2", "z").address, "t4");
+  assert.equal(pickAgent(list.slice(0, 3), "s2", "y").address, "t2");
+  assert.equal(pickAgent(list.slice(0, 3), "s2", "nope").address, "t3");
+  assert.equal(pickAgent(list, "s3", "y"), null);
 });
