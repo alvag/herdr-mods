@@ -26,7 +26,7 @@ Run it again to update; patches already applied are skipped.
 - Copying shows a `Copied` notification. Windows paths are copied with backslashes.
 - A new entry never replaces an existing one: the dialog says `<name> already exists.` and stays open. Esc closes it. The panel shows the new entry by itself (it watches its folder; spaces on another machine refresh within 10 s).
 - Names are one entry, not a path (`a/b` is refused).
-- **Send to agent** picks the space's focused agent, else one in the active tab, else the one active last. The path is relative to the agent's folder when the entry is inside it, else full; quoted when it has spaces. Herdr can't type into a terminal without pressing Enter, so it goes through the clipboard: **it replaces what you had copied.** No agent in the space: a notification says so.
+- **Send to agent** picks the space's focused agent, else one in the active tab, else the one active last. The path is relative to the agent's folder when the entry is inside it, else full; quoted when it has spaces. Herdr can't type into a terminal without pressing Enter, so it goes through the clipboard: **it replaces what you had copied.** No agent in the space: a notification says so. An agent waiting for an answer (a permission prompt) gets nothing pasted, since the text could answer it: the path stays on the clipboard.
 - Deleting asks in a dialog (Enter confirms, Esc cancels). There is no permanent delete: where there's no Trash (Linux, a space on another machine) the row isn't shown.
 
 | Platform | Copy, Send to agent | Reveal | Open in an editor | New file / folder | Delete |
@@ -54,6 +54,7 @@ If a Herdr update changes the anchors it patches, it stops and names the file.
 ## Limits
 
 - Right-click on a row only, not on the panel's empty space. To create at the top level, right-click a top-level file.
+- Send to agent: a path with spaces is sent as `@"a b/c"`; not checked against each agent, and a path with both spaces and `"` comes out wrongly quoted. Outside the agent's folder (or with a different case or separator) the path is full instead of relative.
 - Copy and reveal need macOS or Windows. Only macOS is tested on a real Herdr.
 
 ## Maintenance: `my-files` doesn't receive Herdr's updates

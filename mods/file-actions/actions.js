@@ -84,9 +84,11 @@ export function createError(message, name) {
 }
 
 // [program, args] that put text on this computer's clipboard, or null.
-// exec has no stdin, so macOS pipes the argument into pbcopy through sh.
+// exec has no stdin, so macOS pipes the argument into pbcopy through sh. pbcopy
+// reads it in LANG's encoding, unset when Herdr runs it: without UTF-8 "año"
+// would be copied as "a√±o".
 export function copyPlan(text, platform) {
-  if (platform === "macos") return ["sh", ["-c", 'printf %s "$1" | pbcopy', "copy", text]];
+  if (platform === "macos") return ["sh", ["-c", 'printf %s "$1" | LANG=en_US.UTF-8 pbcopy', "copy", text]];
   if (platform === "windows") return ["powershell", ["-NoProfile", "-Command", `Set-Clipboard -Value ${literal(text)}`]];
   return null;
 }
@@ -156,4 +158,13 @@ export function pickAgent(agents, space, tab) {
   const mine = agents.filter((a) => a.space === space);
   return mine.find((a) => a.focused) ?? mine.find((a) => a.tab === tab)
     ?? mine.reduce((best, a) => (!best || a.seq > best.seq ? a : best), null);
+}
+
+// Why the path can't be pasted into this agent, or null. A blocked agent shows a
+// dialog (a permission prompt) that the pasted text could answer; hc send
+// refuses it too.
+export function pasteBlocker(agent) {
+  if (!agent) return "No agent in this space";
+  if (agent.status === "blocked") return `${agent.address} is waiting for an answer`;
+  return null;
 }

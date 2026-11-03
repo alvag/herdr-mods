@@ -10,7 +10,7 @@ import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { agents, closeOverlay, exec, focused, notify, openOverlay, panes, props, run, spaces, theme, window as appWindow } from "herdr";
 import {
-  checkName, copyPlan, createError, createPlan, deletePlan, mentionOf, menuItems, openPlan, pathsOf, pickAgent, revealPlan, targetFolder,
+  checkName, copyPlan, createError, createPlan, deletePlan, mentionOf, menuItems, openPlan, pasteBlocker, pathsOf, pickAgent, revealPlan, targetFolder,
 } from "./actions.js";
 
 // Runs [program, args, options?]; resolves when it worked, else throws its reason.
@@ -107,9 +107,11 @@ export default class FileActions extends View {
     const f = focused(), space = spaces().find((s) => s.active);
     const tab = f?.pane ? panes().find((x) => x.pane === f.pane)?.tab : null;
     const agent = pickAgent(agents(), space?.id, tab);
-    if (!agent) return notify({ title: "No agent in this space", body: "Start one, then send the path again.", level: "warning" });
+    const blocker = pasteBlocker(agent);
+    if (!agent) return notify({ title: blocker, body: "Start one, then send the path again.", level: "warning" });
     const text = mentionOf(full, panes().find((x) => x.pane === agent.pane)?.cwd);
     await attempt(copyPlan(text, this.platform));
+    if (blocker) return notify({ title: blocker, body: "Not pasted. The path is on the clipboard.", level: "warning" });
     // pane.focus applies a moment later; pasting before that lands in the Files panel.
     run("pane.focus", { terminal: agent.address });
     for (let i = 0; i < 20 && focused()?.pane !== agent.pane; i++) await new Promise((done) => cx.timer.after(50, done));

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  checkName, copyPlan, createError, deletePlan, mentionOf, openPlan, pickAgent, createPlan, menuHeight, menuItems, pathsOf, revealPlan, targetFolder,
+  checkName, copyPlan, createError, deletePlan, mentionOf, openPlan, pasteBlocker, pickAgent, createPlan, menuHeight, menuItems, pathsOf, revealPlan, targetFolder,
 } from "../mods/file-actions/actions.js";
 
 const ids = (items) => items.map((it) => it.id);
@@ -53,7 +53,7 @@ test("names: one entry, not a path", () => {
 });
 
 test("copy: pbcopy on macOS, Set-Clipboard on Windows with quotes escaped, none on Linux", () => {
-  assert.deepEqual(copyPlan("/a b/c", "macos"), ["sh", ["-c", 'printf %s "$1" | pbcopy', "copy", "/a b/c"]]);
+  assert.deepEqual(copyPlan("/a b/c", "macos"), ["sh", ["-c", 'printf %s "$1" | LANG=en_US.UTF-8 pbcopy', "copy", "/a b/c"]]);
   assert.deepEqual(copyPlan("C:\\it's", "windows"),
     ["powershell", ["-NoProfile", "-Command", `Set-Clipboard -Value ${decoded("C:\\it's")}`]]);
   assert.equal(copyPlan("/x", "linux"), null);
@@ -144,4 +144,10 @@ test("agent: the focused one in the space, else the active tab's, else the lates
   assert.equal(pickAgent(list.slice(0, 3), "s2", "y").address, "t2");
   assert.equal(pickAgent(list.slice(0, 3), "s2", "nope").address, "t3");
   assert.equal(pickAgent(list, "s3", "y"), null);
+});
+
+test("send to agent: refuses a missing agent or one waiting on a dialog", () => {
+  assert.equal(pasteBlocker(null), "No agent in this space");
+  assert.equal(pasteBlocker({ address: "t3", status: "blocked", title: "pi" }), "t3 is waiting for an answer");
+  for (const status of ["idle", "working", "done"]) assert.equal(pasteBlocker({ address: "t3", status }), null);
 });
