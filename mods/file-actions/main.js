@@ -15,7 +15,7 @@ import {
   window as appWindow,
 } from "herdr";
 import {
-  checkName, claimTab, copyPlan, createError, createPlan, deletePlan, languageOf, mentionOf, previewOf, menuItems, openPlan, pasteBlocker, pathsOf, pickAgent, revealPlan, targetFolder,
+  checkName, claimTab, contextOf, copyPlan, createError, pastePlan, createPlan, deletePlan, languageOf, mentionOf, previewOf, menuItems, openPlan, pasteBlocker, pathsOf, pickAgent, revealPlan, targetFolder,
 } from "./actions.js";
 
 // Runs [program, args, options?]; resolves when it worked, else throws its reason.
@@ -36,6 +36,7 @@ async function attemptAll(plan) {
 }
 
 const TABS = "file-actions.tabs";
+const DESKTOP_PLATFORMS = ["macos", "windows"];
 
 const fail = (title, e) => notify({ title, body: e?.message ?? String(e), level: "error" });
 
@@ -196,16 +197,37 @@ export default class FileActions extends View {
     return p.key || p.view ? this.viewer(cx) : p.create ? this.dialog() : p.remove ? this.confirm() : this.menu();
   }
 
+  // Herdr's editor tells no selection: the text copied from it with ⌘C is found
+  // in the file to know its lines, then put back on the clipboard with them.
+  async copyContext(view) {
+    const plan = pastePlan(this.platform);
+    if (!plan) return notify({ title: "Not supported on this platform.", level: "warning" });
+    const r = await exec(plan[0], plan[1]);
+    if (r.code !== 0) throw new Error(r.stderr?.trim() || `${plan[0]} exited with ${r.code}`);
+    const ctx = contextOf(this.text ?? "", r.stdout ?? "", view);
+    if (!ctx) return notify({ title: "Copy the text first", body: "Select it and press ⌘C (Ctrl+C), then this again.", level: "warning" });
+    await attempt(copyPlan(ctx.text, this.platform));
+    notify({ title: "Copied with context", body: ctx.text.split("\n").slice(0, 2).join(" · ") + (ctx.unique ? "" : " (first match in the file)"), level: "success", timeout: 2500 });
+  }
+
   viewer(cx) {
     // A tab opened by an earlier version names its file in its props.
     const t = theme(), p = props(), entry = p.view ? { view: p.view, root: p.root, on: p.on } : (shared(TABS) ?? {})[p.key];
     if (!entry) return div().size_full().p(12).bg(t.background).text_color(t.dim).child("This file tab is no longer tracked. Close it and open the file again.");
     const showing = `${entry.on ?? ""}|${entry.root}/${entry.view}`;
     if (showing !== this.showing) { this.showing = showing; this.follow(entry, cx); }
+    const keys = this.platform === "macos" ? "⌘C, then ⌘⌥C" : "Ctrl+C, then Ctrl+Alt+C";
     return v_flex().id("file-actions-view").size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background)
       .border_1().border_color(t.border).text_color(t.foreground).text_size(13)
+      // Keys reach this element while the editor inside it is focused.
+      .on_key_down((e, cx) => {
+        if (e.key !== "c" || !e.modifiers.alt || !(e.modifiers.platform || e.modifiers.control)) return;
+        cx.stop_propagation();
+        cx.spawn(async () => { try { await this.copyContext(entry.view); } catch (err) { fail("Could not copy with context", err); } });
+      })
       .child(h_flex().h(36).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
         .child(div().flex_1().min_w(0).truncate().font_semibold().child(entry.view))
+        .when(DESKTOP_PLATFORMS.includes(this.platform), (el) => el.child(div().flex_none().text_size(11.5).text_color(t.dim).child(`${keys}: copy with context`)))
         .child(div().flex_none().text_size(12).text_color(t.dim).child(entry.root.split(/[\\/]/).pop())))
       .child(this.code ? Editor.new(this.code).flex_1().min_h(0)
         : div().p(12).text_color(t.dim).child(this.viewError ?? "Loading file…"));

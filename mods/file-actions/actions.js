@@ -237,3 +237,31 @@ export function claimTab(entries, key, panes, tabs, activeTab) {
   if (mine.length === 1) return mine[0];
   return mine.includes(activeTab) ? activeTab : null;
 }
+
+// [program, args] that print this computer's clipboard text, or null.
+export function pastePlan(platform) {
+  if (platform === "macos") return ["sh", ["-c", "LANG=en_US.UTF-8 pbpaste"]];
+  if (platform === "windows") return ["powershell", ["-NoProfile", "-Command", "[Console]::OutputEncoding = [Text.Encoding]::UTF8; Get-Clipboard -Raw"]];
+  return null;
+}
+
+// Copied text with where it came from, for an agent or a message:
+//   File: <path>
+//   Lines: <first>-<last>      (Line: <n> for one)
+//   ```<extension>
+//   <text>
+//   ```
+// Herdr's editor doesn't tell its selection, so the lines come from finding the
+// copied text in the file: the first place when it's there more than once
+// (unique: false). null when it isn't in the file.
+export function contextOf(fileText, copied, path) {
+  const body = copied.replace(/\r?\n$/, "");
+  const at = body ? fileText.indexOf(body) : -1;
+  if (at < 0) return null;
+  const first = fileText.slice(0, at).split("\n").length;
+  const last = first + body.split("\n").length - 1;
+  const name = path.split("/").pop();
+  const ext = name.includes(".") ? name.split(".").pop() : "";
+  const lines = first === last ? `Line: ${first}` : `Lines: ${first}-${last}`;
+  return { text: `File: ${path}\n${lines}\n\n\`\`\`${ext}\n${body}\n\`\`\``, unique: fileText.indexOf(body, at + 1) < 0 };
+}

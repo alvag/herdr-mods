@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  checkName, claimTab, copyPlan, createError, deletePlan, languageOf, planOpen, previewOf, tabTitle, mentionOf, openPlan, pasteBlocker, pickAgent, createPlan, menuHeight, menuItems, pathsOf, revealPlan, targetFolder,
+  checkName, claimTab, contextOf, copyPlan, pastePlan, createError, deletePlan, languageOf, planOpen, previewOf, tabTitle, mentionOf, openPlan, pasteBlocker, pickAgent, createPlan, menuHeight, menuItems, pathsOf, revealPlan, targetFolder,
 } from "../mods/file-actions/actions.js";
 
 const ids = (items) => items.map((it) => it.id);
@@ -249,4 +249,32 @@ test("claim: an earlier viewer with the very same name is never taken", () => {
 test("open: a new tab remembers which tabs existed before it", () => {
   const r = planOpen({}, live("t1", "t2"), "s1", file("a.js"), false, "k1", ["t1", "t2"]);
   assert.deepEqual(r.entries.k1.before, ["t1", "t2"]);
+});
+
+const BIOME = '{\n\t"files": {\n\t\t"includes": ["**"]\n\t},\n\t"formatter": {\n\t\t"enabled": true,\n\t\t"lineWidth": 120\n\t},\n\t"linter": {}\n}\n';
+
+test("context: file, lines and a fenced block named after the extension", () => {
+  const copied = '"formatter": {\n\t\t"enabled": true,\n\t\t"lineWidth": 120\n\t},';
+  assert.deepEqual(contextOf(BIOME, copied, "biome.json"), {
+    text: 'File: biome.json\nLines: 5-8\n\n```json\n"formatter": {\n\t\t"enabled": true,\n\t\t"lineWidth": 120\n\t},\n```',
+    unique: true,
+  });
+});
+
+test("context: one line says Line; a trailing newline isn't an extra line", () => {
+  assert.equal(contextOf(BIOME, '"linter": {}\n', "a/biome.json").text, 'File: a/biome.json\nLine: 9\n\n```json\n"linter": {}\n```');
+  assert.equal(contextOf("x\n", "x", "Makefile").text, "File: Makefile\nLine: 1\n\n```\nx\n```");
+});
+
+test("context: text found twice takes the first and says so; not found or empty is null", () => {
+  const r = contextOf("a\nb\na\n", "a", "f.txt");
+  assert.deepEqual([r.text.split("\n")[1], r.unique], ["Line: 1", false]);
+  assert.equal(contextOf(BIOME, "nope", "biome.json"), null);
+  assert.equal(contextOf(BIOME, "", "biome.json"), null);
+});
+
+test("paste: pbpaste with UTF-8 on macOS, Get-Clipboard as UTF-8 on Windows, none elsewhere", () => {
+  assert.deepEqual(pastePlan("macos"), ["sh", ["-c", "LANG=en_US.UTF-8 pbpaste"]]);
+  assert.deepEqual(pastePlan("windows"), ["powershell", ["-NoProfile", "-Command", "[Console]::OutputEncoding = [Text.Encoding]::UTF8; Get-Clipboard -Raw"]]);
+  assert.equal(pastePlan("linux"), null);
 });

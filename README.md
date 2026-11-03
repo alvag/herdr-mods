@@ -5,7 +5,7 @@ Personal [Herdr](https://herdr.dev) mods, each installed on its own so every com
 | Mod | What it does |
 |---|---|
 | [`open-in-editor`](docs/open-in-editor.md) | Opens a space's folder in VS Code, WebStorm or Finder/Explorer, from the space right-click menu |
-| [`file-actions`](docs/file-actions.md) | Click a file in the Files panel to read it in a tab (preview tab, double-click pins); right-click a file or folder: copy its path, reveal it, open it in an editor, send it to an agent, create a file or folder, move it to the Trash |
+| [`file-actions`](docs/file-actions.md) | Click a file in the Files panel to read it in a tab (preview tab, double-click pins; ⌘C then ⌘⌥C copies with file and lines); right-click a file or folder: copy its path, reveal it, open it in an editor, send it to an agent, create a file or folder, move it to the Trash |
 
 ## Install
 

@@ -22,6 +22,21 @@ Run it again to update; patches already applied are skipped.
 | Click a file already open | Selects its tab, never a second one |
 | Double-click a file | Pins its tab (`<name>`, no `◌`); the next file gets a new preview tab |
 
+**Copy with context**: in a file tab, select text, press ⌘C, then ⌘⌥C (Windows: Ctrl+C, then Ctrl+Alt+C). The clipboard becomes:
+
+````
+File: biome.json
+Lines: 11-17
+
+```json
+"formatter": {
+  …
+},
+```
+````
+
+Herdr's editor tells no selection, so it's two keys: ⌘C copies the text, ⌘⌥C finds it in the file for its lines and wraps it. Text that's in the file more than once takes the first place (the notification says "first match"). Text not from the file (nothing copied first) gets a reminder instead. The tab's header shows the keys.
+
 The `◌` stands for italics: Herdr's tab bar draws names as plain text, and italics would mean cloning it too. A tab reloads when its file changes on disk (on this computer). While a file tab is focused, the Files panel keeps showing that file's folder. Which file each tab shows lives in `shared("file-actions.tabs")`; closed tabs are dropped from it on the next click.
 
 **Right-click** a file or folder:
