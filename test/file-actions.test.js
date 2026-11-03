@@ -236,3 +236,17 @@ test("claim: nothing when the pane isn't there yet or the name is ambiguous", ()
   assert.equal(claimTab(entries, "k1", [{ mod: "file-actions", tab: "t1" }, { mod: "file-actions", tab: "t3" }], twins, "x"), null);
   assert.equal(claimTab(entries, "k1", [{ mod: "file-actions", tab: "t2" }], [{ id: "t2", name: "◌ a.js" }], "t2"), null);
 });
+
+test("claim: an earlier viewer with the very same name is never taken", () => {
+  const entries = { k1: { ...file("README.md"), space: "s1", tab: null, preview: false, before: ["old"] } };
+  const tabs = [{ id: "old", name: "README.md" }];
+  // The new tab isn't there yet: the earlier one must not be claimed, active or not.
+  assert.equal(claimTab(entries, "k1", [{ mod: "file-actions", tab: "old" }], tabs, "old"), null);
+  const both = [...tabs, { id: "t1", name: "README.md" }];
+  assert.equal(claimTab(entries, "k1", [{ mod: "file-actions", tab: "old" }, { mod: "file-actions", tab: "t1" }], both, "old"), "t1");
+});
+
+test("open: a new tab remembers which tabs existed before it", () => {
+  const r = planOpen({}, live("t1", "t2"), "s1", file("a.js"), false, "k1", ["t1", "t2"]);
+  assert.deepEqual(r.entries.k1.before, ["t1", "t2"]);
+});

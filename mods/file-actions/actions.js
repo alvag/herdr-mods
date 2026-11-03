@@ -197,10 +197,11 @@ export function tabTitle(name, preview) {
 // Which tab a click on a file opens. `entries` is shared("file-actions.tabs"):
 // { [key]: { view, root, on, name, space, tab, preview } }, one per file tab,
 // `tab` null until its viewer registers. `live` holds the tab ids that still
-// exist; `pin` is a double click. Returns the new entries, the entry's key,
+// exist; `pin` is a double click; `before`, the space's tab ids now, lets the
+// new tab's viewer tell its tab from older ones. Returns the new entries, the entry's key,
 // and what to do: "select" its tab, "replace" what the preview tab shows, or
 // make a "new" tab; `rename` when the tab's name changes.
-export function planOpen(entries, live, space, file, pin, newKey) {
+export function planOpen(entries, live, space, file, pin, newKey, before) {
   const kept = Object.fromEntries(Object.entries(entries).filter(([, e]) => e.tab === null || live.has(e.tab)));
   const same = (e) => e.space === space && e.view === file.view && e.root === file.root && (e.on ?? null) === (file.on ?? null);
   const open = Object.keys(kept).find((k) => same(kept[k]));
@@ -215,20 +216,24 @@ export function planOpen(entries, live, space, file, pin, newKey) {
     const e = { ...kept[preview], ...shown };
     return { entries: { ...kept, [preview]: e }, key: preview, action: "replace", rename: tabTitle(e.name, true) };
   }
-  return { entries: { ...kept, [newKey]: { ...shown, space, tab: null, preview: !pin } }, key: newKey, action: "new" };
+  return { entries: { ...kept, [newKey]: { ...shown, space, tab: null, preview: !pin, ...(before ? { before } : {}) } }, key: newKey, action: "new" };
 }
 
 // The tab a new file tab's viewer belongs to, or null when it can't tell yet.
-// Only a file-actions pane in an unclaimed tab named as tab.new named it; when
-// several match, the active tab (tab.new selects the new one). Never just the
-// first unclaimed viewer: one opened by an earlier version is never claimed.
+// A file-actions pane in an unclaimed tab that didn't exist before the click
+// (entry.before), so an older viewer is never taken, even with the same name.
+// When several qualify, the one named as tab.new named it, then the active one.
+// Entries without `before` (from an earlier version) go by name alone.
 export function claimTab(entries, key, panes, tabs, activeTab) {
   const entry = entries[key];
   if (!entry) return null;
   const claimed = new Set(Object.values(entries).map((e) => e.tab).filter(Boolean));
+  const older = new Set(entry.before ?? []);
   const title = tabTitle(entry.name, entry.preview);
   const named = new Set(tabs.filter((x) => x.name === title).map((x) => x.id));
-  const mine = [...new Set(panes.filter((x) => x.mod === "file-actions" && !claimed.has(x.tab) && named.has(x.tab)).map((x) => x.tab))];
+  const fresh = [...new Set(panes.filter((x) => x.mod === "file-actions" && !claimed.has(x.tab) && !older.has(x.tab)).map((x) => x.tab))];
+  if (entry.before && fresh.length === 1) return fresh[0];
+  const mine = fresh.filter((tab) => named.has(tab));
   if (mine.length === 1) return mine[0];
   return mine.includes(activeTab) ? activeTab : null;
 }

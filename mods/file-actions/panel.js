@@ -12,7 +12,8 @@ export function openFile(path, name, pin, root, on) {
   const space = spaces().find((s) => s.active);
   const live = new Set(spaces().flatMap((s) => (s.tabs ?? []).map((t) => t.id)));
   const key = `f${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
-  const r = planOpen(shared(TABS) ?? {}, live, space?.id, { view: path, root, on, name }, pin, key);
+  const before = (space?.tabs ?? []).map((t) => t.id);
+  const r = planOpen(shared(TABS) ?? {}, live, space?.id, { view: path, root, on, name }, pin, key, before);
   setShared(TABS, r.entries);
   const e = r.entries[r.key];
   if (r.action === "new") return run("tab.new", { name: tabTitle(name, e.preview), mod: "file-actions", props: { key: r.key } });
