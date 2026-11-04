@@ -34,7 +34,7 @@ npx github:alvag/herdr-mods untrack <name>
 `track` records the git tree sha of that folder on GitHub (so run it right after installing or updating the mod) in `~/.config/herdr-app/herdr-mods.external.json`, and refreshes `version.js` (`external`) without installing anything else. `untrack` removes it. Example:
 
 ```sh
-npx github:alvag/herdr-mods track file-icons cybertron288/herdr-mods filetree/mods/file-icons
+npx github:alvag/herdr-mods track file-icons cybertron288/herdr-mods file-icons/mods/file-icons
 ```
 
 - Once a day, in the same check, one unauthenticated `curl` to `https://api.github.com/repos/<owner/repo>/contents/<parent folder>?ref=HEAD` per tracked mod (`curl.exe` on Windows). A failure for one stays silent and doesn't block the others.
