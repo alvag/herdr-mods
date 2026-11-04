@@ -5,22 +5,24 @@
 // request per tracked mod of someone else's (version.js `external`; those are
 // only announced, never updated). Any failure stays silent. The last answers
 // are kept in shared("herdr-mods.updates") as
-// { checked, remote, notified, external: {name: tree}, extNotified: {name: tree} }.
+// { checked, installed, remote, notified, external: {name: tree}, extNotified: {name: tree} },
+// where `installed` is what version.js said at that check: a new install checks again at once.
 // version.js is written by the installer.
 import { View, div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { exec, notify, run, setShared, shared, theme, window as appWindow } from "herdr";
-import { contentsUrl, curlArgs, externalNotice, folderUrl, idleLabel, isDue, isOutdated, label, lsRemoteArgs, nextCheckMs, openCommand, outdatedExternal, parseLsRemote, parseTree, updatePlan, waitMs } from "./check.js";
+import { contentsUrl, curlArgs, externalNotice, folderUrl, idleLabel, installedKey, isOutdated, label, lsRemoteArgs, needsCheck, nextCheckMs, openCommand, outdatedExternal, parseLsRemote, parseTree, updatePlan, waitMs } from "./check.js";
 import version from "./version.js";
 
 const KEY = "herdr-mods.updates";
 const state = () => shared(KEY) ?? {};
+const INSTALLED = installedKey(version);
 
 export default class ModsUpdates extends View {
   init(_props, cx) {
     cx.spawn(async (cx) => {
       for (;;) {
-        const wait = waitMs(state().checked ?? null, Date.now());
+        const wait = state().installed === INSTALLED ? waitMs(state().checked ?? null, Date.now()) : 0;
         if (wait) await new Promise((done) => cx.timer.after(wait, done));
         const answered = await this.check();
         cx.notify();
@@ -36,7 +38,7 @@ export default class ModsUpdates extends View {
   // Resolves false when nothing answered (offline), so the loop tries again sooner.
   async check() {
     const ext = version.external ?? {};
-    if (!(Object.keys(version.mods).length || Object.keys(ext).length) || !isDue(state().checked ?? null, Date.now())) return true;
+    if (!(Object.keys(version.mods).length || Object.keys(ext).length) || !needsCheck(state(), Date.now(), INSTALLED)) return true;
     const was = state();
     const next = { ...was };
     let answered = false;
@@ -66,6 +68,7 @@ export default class ModsUpdates extends View {
     }
     if (!answered) return false;
     next.checked = Date.now();
+    next.installed = INSTALLED;
     setShared(KEY, next);
     return true;
   }

@@ -37,6 +37,12 @@ export const isOutdated = (mods, remote) => Boolean(remote) && Object.values(mod
 export const waitMs = (last, now) => (last == null ? 0 : Math.max(0, last + DAY - now));
 export const isDue = (last, now) => waitMs(last, now) === 0;
 
+// What's installed, as version.js records it. A check remembers it, so one made
+// before an install (or an update) doesn't stand for a day: the answer was about
+// other commits.
+export const installedKey = (version) => JSON.stringify({ mods: version.mods ?? {}, external: version.external ?? {} });
+export const needsCheck = (state, now, key) => state.installed !== key || isDue(state.checked ?? null, now);
+
 // After a check: a day when anything answered, else (offline) an hour.
 export const nextCheckMs = (answered) => (answered ? DAY : HOUR);
 

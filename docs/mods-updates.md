@@ -14,7 +14,7 @@ npm run install-mod -- mods-updates               # from a clone
 ## What it does
 
 - Reserves 110 px at the right of the status bar of `my-main`. While nothing is behind it shows a dim check and **up to date**, once a check has answered; before any answer (never checked, or offline since install) it stays empty. "Up to date" is as of the last check that answered.
-- Compares the installed commit with GitHub's `main` when Herdr starts and once a day. When `main` is ahead, the block shows **herdr-mods ↑** and one notification appears per new commit (restarts don't repeat it).
+- Compares the installed commit with GitHub's `main` when Herdr starts, right after each install or update, and once a day. When `main` is ahead, the block shows **herdr-mods ↑** and one notification appears per new commit (restarts don't repeat it).
 - Clicking the block or the notification opens a tab, `Update herdr-mods`, that runs the update for the mods installed here:
   - installed with `npx`: `npx --yes github:alvag/herdr-mods <mods>`
   - installed from a clone: `git pull --ff-only && npm run install-mod -- <mods>`, in that clone

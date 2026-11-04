@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DAY, HOUR, isDue, isOutdated, lsRemoteArgs, nextCheckMs, parseLsRemote, REPO, updatePlan, waitMs } from "../mods/mods-updates/check.js";
+import { DAY, HOUR, installedKey, isDue, needsCheck, isOutdated, lsRemoteArgs, nextCheckMs, parseLsRemote, REPO, updatePlan, waitMs } from "../mods/mods-updates/check.js";
 import { commitFromLock, parseVersion, recordedMods, renderVersion } from "../scripts/version.mjs";
 import { withNotifier } from "../scripts/select.mjs";
 import { withUpdatesBlock } from "../scripts/wire/mods-updates.mjs";
@@ -138,4 +138,21 @@ test("a check nobody answered (offline) is tried again in an hour, not a day", (
 
 test("git ls-remote gives up on a stalled transfer", () => {
   assert.deepEqual(lsRemoteArgs(), ["-c", "http.lowSpeedLimit=1000", "-c", "http.lowSpeedTime=30", "ls-remote", REPO, "refs/heads/main"]);
+});
+
+test("an install since the last check makes the next one due at once", () => {
+  const v = { mods: { "file-actions": A }, source: null, external: { x: { repo: "o/r", path: "p", tree: B } } };
+  const key = installedKey(v);
+  assert.equal(key, installedKey({ ...v }));
+  assert.notEqual(key, installedKey({ ...v, mods: { "file-actions": B } }));
+  assert.notEqual(key, installedKey({ ...v, external: {} }));
+  const now = 1_000_000_000;
+  // Checked a minute ago for this same install: wait.
+  assert.equal(needsCheck({ checked: now - 60_000, installed: key }, now, key), false);
+  // Checked a minute ago, but something was installed since (or by a version that didn't record it): check now.
+  assert.equal(needsCheck({ checked: now - 60_000, installed: "old" }, now, key), true);
+  assert.equal(needsCheck({ checked: now - 60_000 }, now, key), true);
+  // A day later, or never: check.
+  assert.equal(needsCheck({ checked: now - DAY, installed: key }, now, key), true);
+  assert.equal(needsCheck({}, now, key), true);
 });
