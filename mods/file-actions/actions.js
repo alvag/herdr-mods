@@ -171,9 +171,18 @@ export function pasteBlocker(agent) {
 
 // The commands that put the copied mention in the focused agent's prompt. The
 // paste lands at the prompt, so its view goes back to the live screen too, in
-// case it was scrolled up through the history.
+// case it was scrolled up through the history. The scroll is optional: the
+// path is already pasted, and Herdr before 0.1.13 has no terminal.scroll.
 export function pasteSteps(address) {
-  return [["terminal.paste", {}], ["terminal.scroll", { to: "bottom", terminal: address }]];
+  return [["terminal.paste", {}], ["terminal.scroll", { to: "bottom", terminal: address }, { optional: true }]];
+}
+
+// Runs [command, args, { optional }?] steps in order with `run`; a failing
+// step stops and throws, unless it's optional.
+export function runSteps(steps, run) {
+  for (const [command, args, opts] of steps) {
+    try { run(command, args); } catch (e) { if (!opts?.optional) throw e; }
+  }
 }
 
 // Whether a viewer tab reloads its file: another machine's file can't be

@@ -15,7 +15,7 @@ import {
   window as appWindow,
 } from "herdr";
 import {
-  checkName, claimTab, contextOf, copyPlan, createError, pastePlan, createPlan, deletePlan, languageOf, mentionOf, previewOf, menuItems, openPlan, pasteBlocker, pasteSteps, pathsOf, pickAgent, reloadOnFocus, revealPlan, targetFolder,
+  checkName, claimTab, contextOf, copyPlan, createError, pastePlan, createPlan, deletePlan, languageOf, mentionOf, previewOf, menuItems, openPlan, pasteBlocker, pasteSteps, pathsOf, pickAgent, reloadOnFocus, revealPlan, runSteps, targetFolder,
 } from "./actions.js";
 
 // Runs [program, args, options?]; resolves when it worked, else throws its reason.
@@ -126,7 +126,7 @@ export default class FileActions extends View {
     run("pane.focus", { terminal: agent.address });
     for (let i = 0; i < 20 && focused()?.pane !== agent.pane; i++) await new Promise((done) => cx.timer.after(50, done));
     if (focused()?.pane !== agent.pane) throw new Error(`Could not focus ${agent.address}. The path is on the clipboard.`);
-    for (const [command, args] of pasteSteps(agent.address)) run(command, args);
+    runSteps(pasteSteps(agent.address), run);
   }
 
   remove(cx) {

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  checkName, claimTab, contextOf, copyPlan, pastePlan, createError, deletePlan, languageOf, planOpen, previewOf, tabTitle, mentionOf, openPlan, pasteBlocker, pasteSteps, pickAgent, reloadOnFocus, createPlan, menuHeight, menuItems, pathsOf, revealPlan, targetFolder,
+  checkName, claimTab, contextOf, copyPlan, pastePlan, createError, deletePlan, languageOf, planOpen, previewOf, tabTitle, mentionOf, openPlan, pasteBlocker, pasteSteps, pickAgent, reloadOnFocus, runSteps, createPlan, menuHeight, menuItems, pathsOf, revealPlan, targetFolder,
 } from "../mods/file-actions/actions.js";
 
 const ids = (items) => items.map((it) => it.id);
@@ -155,8 +155,22 @@ test("send to agent: refuses a missing agent or one waiting on a dialog", () => 
 test("send to agent: pastes, then shows the agent's live screen", () => {
   assert.deepEqual(pasteSteps("t3"), [
     ["terminal.paste", {}],
-    ["terminal.scroll", { to: "bottom", terminal: "t3" }],
+    ["terminal.scroll", { to: "bottom", terminal: "t3" }, { optional: true }],
   ]);
+});
+
+test("send to agent: a scroll that fails doesn't fail a paste that worked", () => {
+  const ran = [];
+  const run = (command) => { ran.push(command); if (command === "terminal.scroll") throw new Error("unknown command"); };
+  assert.doesNotThrow(() => runSteps(pasteSteps("t3"), run));
+  assert.deepEqual(ran, ["terminal.paste", "terminal.scroll"]);
+});
+
+test("send to agent: a paste that fails stops there and fails", () => {
+  const ran = [];
+  const run = (command) => { ran.push(command); if (command === "terminal.paste") throw new Error("no terminal"); };
+  assert.throws(() => runSteps(pasteSteps("t3"), run), /no terminal/);
+  assert.deepEqual(ran, ["terminal.paste"]);
 });
 
 test("viewer: another machine's file reloads when the window gets focus back", () => {
