@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { contentsUrl, curlArgs, externalNotice, folderUrl, label, openCommand, outdatedExternal, parseTree } from "../mods/mods-updates/check.js";
+import { contentsUrl, curlArgs, externalNotice, folderUrl, idleLabel, label, openCommand, outdatedExternal, parseTree } from "../mods/mods-updates/check.js";
 import { addEntry, parseRegistry, parseTrackArgs, removeEntry } from "../scripts/external.mjs";
 import { parseVersion, renderVersion } from "../scripts/version.mjs";
 
@@ -39,6 +39,12 @@ test("label: none, herdr-mods only, one external, several", () => {
   assert.equal(label(false, ["file-icons"]), "file-icons ↑");
   assert.equal(label(false, ["a", "b"]), "2 updates ↑");
   assert.equal(label(true, ["a"]), "2 updates ↑");
+});
+
+test("idle label: up to date once a check answered, nothing before", () => {
+  assert.equal(idleLabel(1793821444821), "up to date");
+  assert.equal(idleLabel(undefined), null);
+  assert.equal(idleLabel(null), null);
 });
 
 test("notice: track command, plus the dependent mod when known", () => {

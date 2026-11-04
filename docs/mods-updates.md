@@ -13,12 +13,12 @@ npm run install-mod -- mods-updates               # from a clone
 
 ## What it does
 
-- Reserves 110 px at the right of the status bar of `my-main`, empty while there is nothing to say.
+- Reserves 110 px at the right of the status bar of `my-main`. While nothing is behind it shows a dim check and **up to date**, once a check has answered; before any answer (never checked, or offline since install) it stays empty. "Up to date" is as of the last check that answered.
 - Compares the installed commit with GitHub's `main` when Herdr starts and once a day. When `main` is ahead, the block shows **herdr-mods ↑** and one notification appears per new commit (restarts don't repeat it).
 - Clicking the block or the notification opens a tab, `Update herdr-mods`, that runs the update for the mods installed here:
   - installed with `npx`: `npx --yes github:alvag/herdr-mods <mods>`
   - installed from a clone: `git pull --ff-only && npm run install-mod -- <mods>`, in that clone
-- Any failure (no `git`, offline, no mods recorded) stays silent: the block shows nothing. When nothing answered (offline), it tries again in an hour instead of a day. `git` and `curl` give up on a request stalled for 30 s.
+- Any failure (no `git`, offline, no mods recorded) stays silent: the block keeps what the last answer said, or shows nothing if there was none. When nothing answered (offline), it tries again in an hour instead of a day. `git` and `curl` give up on a request stalled for 30 s.
 
 Which mods (each with the commit it was installed at) and how they were installed is recorded by the installer in `~/.config/herdr-app/mods/mods-updates/version.js` (never in the repo). Installing again updates only the commits of the mods just installed and keeps the others, so the block shows while any recorded mod is behind. Mods installed before the notifier have no known commit and show as an update once. The last answer from GitHub is in `shared("herdr-mods.updates")`.
 

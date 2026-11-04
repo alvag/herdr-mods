@@ -7,10 +7,10 @@
 // are kept in shared("herdr-mods.updates") as
 // { checked, remote, notified, external: {name: tree}, extNotified: {name: tree} }.
 // version.js is written by the installer.
-import { View, div } from "gpui-kit";
+import { View, div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { exec, notify, run, setShared, shared, theme, window as appWindow } from "herdr";
-import { contentsUrl, curlArgs, externalNotice, folderUrl, isDue, isOutdated, label, lsRemoteArgs, nextCheckMs, openCommand, outdatedExternal, parseLsRemote, parseTree, updatePlan, waitMs } from "./check.js";
+import { contentsUrl, curlArgs, externalNotice, folderUrl, idleLabel, isDue, isOutdated, label, lsRemoteArgs, nextCheckMs, openCommand, outdatedExternal, parseLsRemote, parseTree, updatePlan, waitMs } from "./check.js";
 import version from "./version.js";
 
 const KEY = "herdr-mods.updates";
@@ -85,7 +85,12 @@ export default class ModsUpdates extends View {
     const herdr = this.plan() && isOutdated(version.mods, state().remote);
     const names = outdatedExternal(version.external, state().external);
     const text = label(herdr, names);
-    if (!text) return bar;
+    if (!text) {
+      const idle = idleLabel(state().checked);
+      if (!idle) return bar;
+      return bar.child(h_flex().gap(4).items_center().text_color(t.dim)
+        .child(svg("mods/mods-updates/check.svg").size(11).flex_none().text_color(t.dim)).child(idle));
+    }
     return bar.child(div().id("update").text_color(t.accent).cursor_pointer().hover((s) => s.opacity(0.8))
       .on_click(() => (names.length ? this.open(names, herdr && this.plan()) : run("tab.new", this.plan()))).child(text));
   }

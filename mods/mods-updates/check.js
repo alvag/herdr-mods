@@ -97,6 +97,10 @@ export function label(herdrOutdated, names) {
   return `${herdrOutdated ? "herdr-mods" : names[0]} ↑`;
 }
 
+// The block's dim text while nothing is behind: "up to date" once a check has
+// answered (`checked` in shared state), else nothing (never checked, or offline).
+export const idleLabel = (checked) => (checked == null ? null : "up to date");
+
 // Program and arguments that open a page in the default browser.
 export function openCommand(platform, url) {
   if (platform === "windows") return ["explorer.exe", [url]];
