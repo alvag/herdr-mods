@@ -27,18 +27,18 @@ export default class ModsUpdates extends View {
   }
 
   plan() {
-    return updatePlan(version.source, version.mods, appWindow()?.platform);
+    return updatePlan(version.source, Object.keys(version.mods), appWindow()?.platform);
   }
 
   async check() {
-    if (!version.commit || !isDue(state().checked ?? null, Date.now())) return;
+    if (!Object.keys(version.mods).length || !isDue(state().checked ?? null, Date.now())) return;
     const r = await exec("git", ["ls-remote", REPO, "refs/heads/main"]).catch(() => null);
     const remote = r?.code === 0 ? parseLsRemote(r.stdout) : null;
     if (!remote) return;
     const was = state();
     const next = { ...was, checked: Date.now(), remote };
     const plan = this.plan();
-    if (isOutdated(version.commit, remote) && plan && was.notified !== remote) {
+    if (isOutdated(version.mods, remote) && plan && was.notified !== remote) {
       next.notified = remote;
       notify({ title: "herdr-mods has an update", body: "Click to update your installed mods.", action: { name: "tab.new", args: plan } });
     }
@@ -49,7 +49,7 @@ export default class ModsUpdates extends View {
     const t = theme();
     const bar = h_flex().size_full().px(14).items_center().justify_end().bg(t.chrome).border_t(1).border_color(t.border).text_size(11.8);
     const plan = this.plan();
-    if (!plan || !isOutdated(version.commit, state().remote)) return bar;
+    if (!plan || !isOutdated(version.mods, state().remote)) return bar;
     return bar.child(div().id("update").text_color(t.accent).cursor_pointer().hover((s) => s.opacity(0.8))
       .on_click(() => run("tab.new", plan)).child("herdr-mods ↑"));
   }

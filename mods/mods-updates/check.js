@@ -29,7 +29,8 @@ export function parseLsRemote(stdout) {
   return /^([0-9a-f]{40})\s+refs\/heads\/main$/m.exec(stdout ?? "")?.[1] ?? null;
 }
 
-export const isOutdated = (commit, remote) => Boolean(commit && remote && commit !== remote);
+// A recorded mod (mod -> commit) is behind `remote`; an unknown commit counts.
+export const isOutdated = (mods, remote) => Boolean(remote) && Object.values(mods).some((c) => c !== remote);
 
 // Milliseconds until the next check; 0 when it's due.
 export const waitMs = (last, now) => (last == null ? 0 : Math.max(0, last + DAY - now));

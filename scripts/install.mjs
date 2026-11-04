@@ -6,7 +6,7 @@
 //   npx github:alvag/herdr-mods [names]      same, without cloning this repo
 //
 // mods-updates (the status bar's update notice) is always installed with the
-// selection; the installer records the installed commit and mods in its
+// selection; the installer records the installed mods and their commits in its
 // version.js, in the installed copy only.
 //
 // Each mod folder is copied to <home>/mods/. A mod that needs more than its
@@ -73,7 +73,7 @@ const commit = (clone ? git("-C", repo, "rev-parse", "HEAD").trim() : commitFrom
 const versionFile = join(home, "mods", "mods-updates", "version.js");
 const previous = parseVersion(existsSync(versionFile) ? readFileSync(versionFile, "utf8") : "");
 const existing = readdirSync(join(home, "mods"));
-const version = renderVersion({ commit, mods: recordedMods(previous?.mods, selected, existing), source: clone ? { kind: "clone", path: repo } : { kind: "npx" } });
+const version = renderVersion({ mods: recordedMods(previous?.mods, selected, existing, commit, available), source: clone ? { kind: "clone", path: repo } : { kind: "npx" } });
 if (!existsSync(versionFile) || readFileSync(versionFile, "utf8") !== version) writeFileSync(versionFile, version);
 
 for (const m of checks) herdr("check", join(home, "mods", m));

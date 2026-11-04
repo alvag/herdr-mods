@@ -5,12 +5,14 @@ export function commitFromLock(text) {
   return /"resolved":\s*"git\+[^"]*alvag\/herdr-mods(?:\.git)?#([0-9a-f]{40})"/.exec(text ?? "")?.[1] ?? null;
 }
 
-// Mods to update later: those recorded before and those just installed that
-// still have a folder, without the notifier itself.
-export function recordedMods(previous, installed, existing) {
-  return [...new Set([...(previous ?? []), ...installed])]
+// Mod -> commit it was installed at, for repository mods with a folder in the
+// home (without the notifier). Just installed ones get `commit`; the rest keep
+// their recorded one, or null when unknown (installed before tracking).
+export function recordedMods(previous, installed, existing, commit, available) {
+  return Object.fromEntries(available
     .filter((m) => m !== "mods-updates" && existing.includes(m))
-    .sort();
+    .sort()
+    .map((m) => [m, installed.includes(m) ? commit : previous?.[m] ?? null]));
 }
 
 export const renderVersion = (v) => `export default ${JSON.stringify(v, null, 2)};\n`;

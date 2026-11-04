@@ -16,11 +16,12 @@ test("ls-remote: the sha of refs/heads/main; empty or garbage is null", () => {
   assert.equal(parseLsRemote(undefined), null);
 });
 
-test("outdated only when both shas are known and differ", () => {
-  assert.equal(isOutdated(A, A), false);
-  assert.equal(isOutdated(A, B), true);
-  assert.equal(isOutdated(null, B), false);
-  assert.equal(isOutdated(A, null), false);
+test("outdated when the remote is known and a recorded mod differs; null counts", () => {
+  assert.equal(isOutdated({ a: A, b: A }, A), false);
+  assert.equal(isOutdated({ a: A, b: B }, B), true);
+  assert.equal(isOutdated({ a: B, b: null }, B), true);
+  assert.equal(isOutdated({}, B), false);
+  assert.equal(isOutdated({ a: A }, null), false);
 });
 
 test("a check is due with no last check or after a day", () => {
@@ -66,14 +67,31 @@ test("commit from an npx package-lock", () => {
   assert.equal(commitFromLock(null), null);
 });
 
-test("recorded mods: union with the previous ones, only installed folders, sorted, no mods-updates", () => {
-  assert.deepEqual(recordedMods(["open-in-editor", "gone"], ["file-actions", "mods-updates", "open-in-editor"], ["file-actions", "open-in-editor", "mods-updates", "other"]),
-    ["file-actions", "open-in-editor"]);
-  assert.deepEqual(recordedMods(undefined, [], []), []);
+test("recorded mods: just installed get the commit, others keep theirs or null, only folders, no mods-updates", () => {
+  const existing = ["file-actions", "open-in-editor", "mods-updates", "other"];
+  assert.deepEqual(recordedMods({ "open-in-editor": A, gone: A }, ["file-actions", "mods-updates"], existing, B, ["file-actions", "open-in-editor", "mods-updates"]),
+    { "file-actions": B, "open-in-editor": A });
+  assert.deepEqual(recordedMods(undefined, [], [], B, ["a"]), {});
+  assert.deepEqual(recordedMods(undefined, ["a"], ["a"], null, ["a"]), { a: null });
+});
+
+test("migration: a mod installed before tracking is recorded as unknown, so it shows as outdated", () => {
+  const mods = recordedMods(undefined, ["file-actions"], ["file-actions", "open-in-editor"], B, ["file-actions", "open-in-editor"]);
+  assert.deepEqual(mods, { "file-actions": B, "open-in-editor": null });
+  assert.equal(isOutdated(mods, B), true);
+});
+
+test("two selective installs: the mod left behind keeps its commit until it is installed", () => {
+  const all = ["file-actions", "open-in-editor"];
+  const first = recordedMods(undefined, all, all, A, all);
+  const second = recordedMods(first, ["file-actions"], all, B, all);
+  assert.deepEqual(second, { "file-actions": B, "open-in-editor": A });
+  assert.equal(isOutdated(second, B), true);
+  assert.equal(isOutdated(recordedMods(second, ["open-in-editor"], all, B, all), B), false);
 });
 
 test("version.js round trips", () => {
-  const v = { commit: A, mods: ["file-actions"], source: { kind: "clone", path: "/a b/c" } };
+  const v = { mods: { "file-actions": A, "open-in-editor": null }, source: { kind: "clone", path: "/a b/c" } };
   assert.deepEqual(parseVersion(renderVersion(v)), v);
   assert.match(renderVersion(v), /^export default \{/);
   assert.equal(parseVersion("garbage"), null);

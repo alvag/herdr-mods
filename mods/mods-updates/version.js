@@ -1,1 +1,1 @@
-export default { commit: null, mods: [], source: null };
+export default { mods: {}, source: null };
