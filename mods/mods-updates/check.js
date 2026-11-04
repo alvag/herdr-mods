@@ -49,3 +49,47 @@ export function updatePlan(source, mods, platform) {
     : ["sh", "-c", 'git pull --ff-only && npm run install-mod -- "$@"', "sh", ...names];
   return { name, folder: source.path, argv };
 }
+
+// Other people's mods, tracked as { name: { repo, path, tree } }: GitHub's
+// contents listing of the folder's parent says the tree sha of the folder.
+export const contentsUrl = (repo, path) => `https://api.github.com/repos/${repo}/contents/${path.split("/").slice(0, -1).join("/")}?ref=HEAD`;
+export const folderUrl = (repo, path) => `https://github.com/${repo}/tree/HEAD/${path}`;
+
+// The sha of the directory `path` in a contents response, else null.
+export function parseTree(stdout, path) {
+  try {
+    const list = JSON.parse(stdout);
+    const hit = list.find((e) => e?.type === "dir" && e.name === path.split("/").pop());
+    return typeof hit?.sha === "string" ? hit.sha : null;
+  } catch {
+    return null;
+  }
+}
+
+// Tracked names whose remote tree is known and differs from the recorded one.
+export const outdatedExternal = (external, remote) => Object.keys(external ?? {}).filter((n) => remote?.[n] && remote[n] !== external[n].tree);
+
+// Mods that keep a copy of another one's files, so need installing again.
+export const DEPENDENTS = { "file-icons": "file-actions" };
+
+export function externalNotice(name, { repo, path }) {
+  const dep = DEPENDENTS[name];
+  return {
+    title: `${name} has an update`,
+    body: `Review it on GitHub, update it, then run: npx github:alvag/herdr-mods track ${name} ${repo} ${path}${dep ? ` and install ${dep} again.` : ""}`,
+  };
+}
+
+// The block's text: nothing, "herdr-mods ↑", "<name> ↑" or "<n> updates ↑".
+export function label(herdrOutdated, names) {
+  const n = names.length + (herdrOutdated ? 1 : 0);
+  if (!n) return null;
+  if (n > 1) return `${n} updates ↑`;
+  return `${herdrOutdated ? "herdr-mods" : names[0]} ↑`;
+}
+
+// Program and arguments that open a page in the default browser.
+export function openCommand(platform, url) {
+  if (platform === "windows") return ["explorer.exe", [url]];
+  return [platform === "macos" ? "open" : "xdg-open", [url]];
+}

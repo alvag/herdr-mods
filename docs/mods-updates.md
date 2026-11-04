@@ -22,9 +22,29 @@ npm run install-mod -- mods-updates               # from a clone
 
 Which mods (each with the commit it was installed at) and how they were installed is recorded by the installer in `~/.config/herdr-app/mods/mods-updates/version.js` (never in the repo). Installing again updates only the commits of the mods just installed and keeps the others, so the block shows while any recorded mod is behind. Mods installed before the notifier have no known commit and show as an update once. The last answer from GitHub is in `shared("herdr-mods.updates")`.
 
+## Other people's mods
+
+It can also tell you when a mod from someone else's repo changed. It only **notifies**: it never updates them. Herdr's guide says to read every file of a third-party mod, and check its network and exec use, before adding it; an update button would skip that review.
+
+```sh
+npx github:alvag/herdr-mods track <name> <owner/repo> <path in that repo>
+npx github:alvag/herdr-mods untrack <name>
+```
+
+`track` records the git tree sha of that folder on GitHub (so run it right after installing or updating the mod) in `~/.config/herdr-app/herdr-mods.external.json`, and refreshes `version.js` (`external`) without installing anything else. `untrack` removes it. Example:
+
+```sh
+npx github:alvag/herdr-mods track file-icons cybertron288/herdr-mods filetree/mods/file-icons
+```
+
+- Once a day, in the same check, one unauthenticated `curl` to `https://api.github.com/repos/<owner/repo>/contents/<parent folder>?ref=HEAD` per tracked mod (`curl.exe` on Windows). A failure for one stays silent and doesn't block the others.
+- A tracked mod is outdated when GitHub's tree sha is known and differs from the recorded one. One notification per new sha: "<name> has an update", with the track command to run after updating. For `file-icons` it adds "and install file-actions again", since `my-files` keeps a copy of its icons (`DEPENDENTS` in `check.js`).
+- The block shows `<name> ↑` for one external mod only, `herdr-mods ↑` for herdr-mods only, and `<n> updates ↑` for several (herdr-mods counted). A click opens each outdated mod's folder (`https://github.com/<repo>/tree/HEAD/<path>`) in the browser (`open`, `xdg-open`, `explorer.exe`) and, if herdr-mods is outdated, also opens the update tab.
+- To update one: review the new code, update it as its page says, then run the `track` command again. To stop, run `untrack`.
+
 ## Privacy
 
-One `git ls-remote https://github.com/alvag/herdr-mods.git refs/heads/main` per day, from this computer to GitHub. Nothing is sent but what that request itself carries.
+One `git ls-remote https://github.com/alvag/herdr-mods.git refs/heads/main` per day, from this computer to GitHub, plus one GitHub API request per tracked mod of someone else's. Nothing is sent but what those requests themselves carry.
 
 ## Wiring (`scripts/wire/mods-updates.mjs`)
 

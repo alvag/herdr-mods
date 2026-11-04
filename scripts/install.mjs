@@ -4,6 +4,8 @@
 //   node scripts/install.mjs                 every mod in mods/
 //   node scripts/install.mjs open-in-editor  only the named ones
 //   npx github:alvag/herdr-mods [names]      same, without cloning this repo
+//   node scripts/install.mjs track <name> <owner/repo> <path>   watch someone else's mod
+//   node scripts/install.mjs untrack <name>                     stop watching it
 //
 // mods-updates (the status bar's update notice) is always installed with the
 // selection; the installer records the installed mods and their commits in its
@@ -18,7 +20,8 @@ import { cpSync, existsSync, readdirSync, readFileSync, writeFileSync } from "no
 import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { parseLsRemote } from "../mods/mods-updates/check.js";
+import { contentsUrl, parseLsRemote, parseTree } from "../mods/mods-updates/check.js";
+import { addEntry, parseRegistry, parseTrackArgs, removeEntry } from "./external.mjs";
 import { selectMods, withNotifier } from "./select.mjs";
 import { commitFromLock, parseVersion, recordedMods, renderVersion } from "./version.mjs";
 
@@ -34,6 +37,41 @@ function patch(file, marker, from, to) {
   if (!text.includes(from)) throw new Error(`${file}: anchor not found, Herdr changed it:\n${from}`);
   writeFileSync(file, text.replace(from, to));
   console.log(`patched ${file}`);
+}
+
+const registryFile = join(home, "herdr-mods.external.json");
+const readRegistry = () => parseRegistry(existsSync(registryFile) ? readFileSync(registryFile, "utf8") : "");
+const versionFile = join(home, "mods", "mods-updates", "version.js");
+const readVersion = () => parseVersion(existsSync(versionFile) ? readFileSync(versionFile, "utf8") : "");
+const writeIfChanged = (file, text) => { if (!existsSync(file) || readFileSync(file, "utf8") !== text) writeFileSync(file, text); };
+
+// track/untrack: edit the registry, refresh version.js, install nothing else.
+const [command, ...rest] = process.argv.slice(2);
+if (command === "track" || command === "untrack") {
+  try {
+    const previous = readVersion();
+    if (!previous) throw new Error(`${versionFile} not found: install mods-updates first.`);
+    let registry = readRegistry();
+    if (command === "track") {
+      const { name, repo, path } = parseTrackArgs(rest);
+      const res = await fetch(contentsUrl(repo, path), { headers: { Accept: "application/vnd.github+json" } });
+      if (!res.ok) throw new Error(`GitHub answered ${res.status} for ${contentsUrl(repo, path)}`);
+      const tree = parseTree(await res.text(), path);
+      if (!tree) throw new Error(`Folder not found: ${repo} ${path}`);
+      registry = addEntry(registry, name, { repo, path, tree });
+      console.log(`tracking ${name}: ${repo} ${path} at tree ${tree}`);
+    } else {
+      if (rest.length !== 1) throw new Error("Usage: untrack <name>");
+      registry = removeEntry(registry, rest[0]);
+      console.log(`untracked ${rest[0]}`);
+    }
+    writeFileSync(registryFile, JSON.stringify(registry, null, 2) + "\n");
+    writeIfChanged(versionFile, renderVersion({ ...previous, external: registry }));
+    process.exit(0);
+  } catch (e) {
+    console.error(e.message);
+    process.exit(1);
+  }
 }
 
 const available = readdirSync(join(repo, "mods"), { withFileTypes: true })
@@ -70,11 +108,10 @@ const clone = existsSync(join(repo, ".git"));
 const lock = join(repo, "..", "..", "package-lock.json");
 const commit = (clone ? git("-C", repo, "rev-parse", "HEAD").trim() : commitFromLock(existsSync(lock) ? readFileSync(lock, "utf8") : null))
   || parseLsRemote(git("ls-remote", "https://github.com/alvag/herdr-mods.git", "refs/heads/main")) || null;
-const versionFile = join(home, "mods", "mods-updates", "version.js");
-const previous = parseVersion(existsSync(versionFile) ? readFileSync(versionFile, "utf8") : "");
+const previous = readVersion();
 const existing = readdirSync(join(home, "mods"));
-const version = renderVersion({ mods: recordedMods(previous?.mods, selected, existing, commit, available), source: clone ? { kind: "clone", path: repo } : { kind: "npx" } });
-if (!existsSync(versionFile) || readFileSync(versionFile, "utf8") !== version) writeFileSync(versionFile, version);
+const version = renderVersion({ mods: recordedMods(previous?.mods, selected, existing, commit, available), source: clone ? { kind: "clone", path: repo } : { kind: "npx" }, external: readRegistry() });
+writeIfChanged(versionFile, version);
 
 for (const m of checks) herdr("check", join(home, "mods", m));
 console.log(`installed: ${selected.join(", ")}`);

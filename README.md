@@ -40,7 +40,7 @@ git pull && npm run install-mod -- file-actions          # from a clone
 - Installing again reloads the mod: Herdr closes the tabs it had open (such as `file-actions`' file tabs).
 - Clones of Herdr's own mods and layouts (`my-files`, `my-main`, `my-menu`, `my-spaces`) are made only when missing, so updating keeps them as they are and they don't get Herdr's updates. To take a newer Herdr version of one, move the clone out of `~/.config/herdr-app/` and install again; each mod's page in [`docs/`](docs/) says when and how.
 
-An indicator appears in the status bar of `my-main` when GitHub's `main` is ahead of what is installed here ([`mods-updates`](docs/mods-updates.md)); click it to run the update for the mods you have.
+An indicator appears in the status bar of `my-main` when GitHub's `main` is ahead of what is installed here ([`mods-updates`](docs/mods-updates.md)); click it to run the update for the mods you have. It can also notify you of updates to other people's mods (`npx github:alvag/herdr-mods track <name> <owner/repo> <path>`); see [`mods-updates`](docs/mods-updates.md#other-peoples-mods).
 
 Herdr loads every folder in `~/.config/herdr-app/mods/`; there is no on/off switch, so choosing happens here. `HERDR_APP_HOME` picks another home.
 

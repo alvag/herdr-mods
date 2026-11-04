@@ -1,1 +1,1 @@
-export default { mods: {}, source: null };
+export default { mods: {}, source: null, external: {} };
