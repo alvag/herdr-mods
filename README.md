@@ -26,6 +26,19 @@ npm run install-mod -- open-in-editor   # only the named ones
 
 An unknown name stops before copying anything and lists the available mods.
 
+## Update
+
+Run the same install command again. There is no separate update step: the mods are copied again and patches already applied are skipped.
+
+```sh
+npx github:alvag/herdr-mods file-actions                 # gets main's latest commit each time
+git pull && npm run install-mod -- file-actions          # from a clone
+```
+
+- `npx` checks GitHub on every run, so it installs `main`'s latest commit even with an older copy in its cache. To install a given version, add its commit: `npx github:alvag/herdr-mods#5241310 file-actions`.
+- Installing again reloads the mod: Herdr closes the tabs it had open (such as `file-actions`' file tabs).
+- Clones of Herdr's own mods and layouts (`my-files`, `my-main`, `my-menu`, `my-spaces`) are made only when missing, so updating keeps them as they are and they don't get Herdr's updates. To take a newer Herdr version of one, move the clone out of `~/.config/herdr-app/` and install again; each mod's page in [`docs/`](docs/) says when and how.
+
 Herdr loads every folder in `~/.config/herdr-app/mods/`; there is no on/off switch, so choosing happens here. `HERDR_APP_HOME` picks another home.
 
 ## Layout
