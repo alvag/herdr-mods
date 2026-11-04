@@ -15,7 +15,7 @@ import {
   window as appWindow,
 } from "herdr";
 import {
-  checkName, claimTab, contextOf, copyPlan, createError, pastePlan, createPlan, deletePlan, languageOf, mentionOf, previewOf, menuItems, openPlan, pasteBlocker, pathsOf, pickAgent, revealPlan, targetFolder,
+  checkName, claimTab, contextOf, copyPlan, createError, pastePlan, createPlan, deletePlan, languageOf, mentionOf, previewOf, menuItems, openPlan, pasteBlocker, pasteSteps, pathsOf, pickAgent, reloadOnFocus, revealPlan, targetFolder,
 } from "./actions.js";
 
 // Runs [program, args, options?]; resolves when it worked, else throws its reason.
@@ -126,7 +126,7 @@ export default class FileActions extends View {
     run("pane.focus", { terminal: agent.address });
     for (let i = 0; i < 20 && focused()?.pane !== agent.pane; i++) await new Promise((done) => cx.timer.after(50, done));
     if (focused()?.pane !== agent.pane) throw new Error(`Could not focus ${agent.address}. The path is on the clipboard.`);
-    run("terminal.paste", {});
+    for (const [command, args] of pasteSteps(agent.address)) run(command, args);
   }
 
   remove(cx) {
@@ -155,7 +155,7 @@ export default class FileActions extends View {
   }
 
   // Shows the entry's file, again whenever its folder changes (on this
-  // computer; another machine's file loads once). A preview tab's file changes:
+  // computer; another machine's file: see refresh). A preview tab's file changes:
   // `gen` stops the loop of the file shown before.
   follow(entry, cx) {
     const gen = (this.gen = (this.gen ?? 0) + 1);
@@ -170,6 +170,18 @@ export default class FileActions extends View {
         try { await watchFolder(folder); } catch { return; }
         if (gen !== this.gen) return;
       }
+    });
+  }
+
+  // Another machine's file, again when the window gets the focus back.
+  refresh(entry, cx) {
+    const now = appWindow()?.active, was = this.active;
+    this.active = now;
+    if (!reloadOnFocus(was, now, entry.on)) return;
+    const gen = this.gen;
+    cx.spawn(async (cx) => {
+      await this.load(`${entry.root}/${entry.view}`, entry.on, gen);
+      if (gen === this.gen) cx.notify();
     });
   }
 
@@ -216,6 +228,7 @@ export default class FileActions extends View {
     if (!entry) return div().size_full().p(12).bg(t.background).text_color(t.dim).child("This file tab is no longer tracked. Close it and open the file again.");
     const showing = `${entry.on ?? ""}|${entry.root}/${entry.view}`;
     if (showing !== this.showing) { this.showing = showing; this.follow(entry, cx); }
+    this.refresh(entry, cx);
     const keys = this.platform === "macos" ? "⌘C, then ⌘⌥C" : "Ctrl+C, then Ctrl+Alt+C";
     return v_flex().id("file-actions-view").size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background)
       .border_1().border_color(t.border).text_color(t.foreground).text_size(13)

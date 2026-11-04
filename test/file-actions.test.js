@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  checkName, claimTab, contextOf, copyPlan, pastePlan, createError, deletePlan, languageOf, planOpen, previewOf, tabTitle, mentionOf, openPlan, pasteBlocker, pickAgent, createPlan, menuHeight, menuItems, pathsOf, revealPlan, targetFolder,
+  checkName, claimTab, contextOf, copyPlan, pastePlan, createError, deletePlan, languageOf, planOpen, previewOf, tabTitle, mentionOf, openPlan, pasteBlocker, pasteSteps, pickAgent, reloadOnFocus, createPlan, menuHeight, menuItems, pathsOf, revealPlan, targetFolder,
 } from "../mods/file-actions/actions.js";
 
 const ids = (items) => items.map((it) => it.id);
@@ -150,6 +150,22 @@ test("send to agent: refuses a missing agent or one waiting on a dialog", () => 
   assert.equal(pasteBlocker(null), "No agent in this space");
   assert.equal(pasteBlocker({ address: "t3", status: "blocked", title: "pi" }), "t3 is waiting for an answer");
   for (const status of ["idle", "working", "done"]) assert.equal(pasteBlocker({ address: "t3", status }), null);
+});
+
+test("send to agent: pastes, then shows the agent's live screen", () => {
+  assert.deepEqual(pasteSteps("t3"), [
+    ["terminal.paste", {}],
+    ["terminal.scroll", { to: "bottom", terminal: "t3" }],
+  ]);
+});
+
+test("viewer: another machine's file reloads when the window gets focus back", () => {
+  assert.equal(reloadOnFocus(false, true, "devbox"), true);
+  // Not on the first render, not while focus stays or goes away.
+  for (const [was, now] of [[undefined, true], [true, true], [true, false], [false, false], [undefined, false]])
+    assert.equal(reloadOnFocus(was, now, "devbox"), false, `${was} -> ${now}`);
+  // This computer's files already reload when their folder changes.
+  for (const on of [null, undefined, ""]) assert.equal(reloadOnFocus(false, true, on), false);
 });
 
 test("viewer: the language from the extension, as the Files panel maps it", () => {

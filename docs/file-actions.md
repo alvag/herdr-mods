@@ -37,7 +37,7 @@ Lines: 11-17
 
 Herdr's editor tells no selection, so it's two keys: ⌘C copies the text, ⌘⌥C finds it in the file for its lines and wraps it. Text that's in the file more than once takes the first place (the notification says "first match"). Text not from the file (nothing copied first) gets a reminder instead. The tab's header shows the keys.
 
-The `◌` stands for italics: Herdr's tab bar draws names as plain text, and italics would mean cloning it too. A tab reloads when its file changes on disk (on this computer). While a file tab is focused, the Files panel keeps showing that file's folder. Which file each tab shows lives in `shared("file-actions.tabs")`; closed tabs are dropped from it on the next click.
+The `◌` stands for italics: Herdr's tab bar draws names as plain text, and italics would mean cloning it too. A tab reloads when its file changes on disk (on this computer); a file on another machine can't be watched, so its tab reloads when you come back to the Herdr window. While a file tab is focused, the Files panel keeps showing that file's folder. Which file each tab shows lives in `shared("file-actions.tabs")`; closed tabs are dropped from it on the next click.
 
 **Right-click** a file or folder:
 
@@ -54,7 +54,7 @@ The `◌` stands for italics: Herdr's tab bar draws names as plain text, and ita
 - Copying shows a `Copied` notification. Windows paths are copied with backslashes.
 - A new entry never replaces an existing one: the dialog says `<name> already exists.` and stays open. Esc closes it. The panel shows the new entry by itself (it watches its folder; spaces on another machine refresh within 10 s).
 - Names are one entry, not a path (`a/b` is refused).
-- **Send to agent** picks the space's focused agent, else one in the active tab, else the one active last. The path is relative to the agent's folder when the entry is inside it, else full; quoted when it has spaces. Herdr can't type into a terminal without pressing Enter, so it goes through the clipboard: **it replaces what you had copied.** No agent in the space: a notification says so. An agent waiting for an answer (a permission prompt) gets nothing pasted, since the text could answer it: the path stays on the clipboard.
+- **Send to agent** picks the space's focused agent, else one in the active tab, else the one active last. The path is relative to the agent's folder when the entry is inside it, else full; quoted when it has spaces. Herdr can't type into a terminal without pressing Enter, so it goes through the clipboard: **it replaces what you had copied.** After pasting, the agent's terminal scrolls back to its live screen, so the prompt shows even if you had scrolled up through its history (`terminal.scroll`, Herdr 0.1.13 or later). No agent in the space: a notification says so. An agent waiting for an answer (a permission prompt) gets nothing pasted, since the text could answer it: the path stays on the clipboard.
 - Deleting asks in a dialog (Enter confirms, Esc cancels). There is no permanent delete: where there's no Trash (Linux, a space on another machine) the row isn't shown.
 
 | Platform | Copy, Send to agent | Reveal | Open in an editor | New file / folder | Delete |

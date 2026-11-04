@@ -169,6 +169,20 @@ export function pasteBlocker(agent) {
   return null;
 }
 
+// The commands that put the copied mention in the focused agent's prompt. The
+// paste lands at the prompt, so its view goes back to the live screen too, in
+// case it was scrolled up through the history.
+export function pasteSteps(address) {
+  return [["terminal.paste", {}], ["terminal.scroll", { to: "bottom", terminal: address }]];
+}
+
+// Whether a viewer tab reloads its file: another machine's file can't be
+// watched, so it reloads when the window gets the focus back (`was` and `now`
+// are window().active before and now; undefined before the first render).
+export function reloadOnFocus(was, now, on) {
+  return Boolean(on) && was === false && now === true;
+}
+
 // The viewer tab shows a file the way the Files panel previewed it (same
 // language map, size cap and messages; copied from Herdr's files mod).
 const LANG = { ts: "js", tsx: "js", mts: "js", cts: "js", jsx: "js", mjs: "js", toml: "yaml", jsonc: "json", svelte: "html", vue: "html" };
