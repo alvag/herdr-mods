@@ -6,3 +6,6 @@ export function selectMods(available, requested) {
   if (unknown.length) throw new Error(`Unknown mod: ${unknown.join(", ")}. Available: ${all.join(", ")}`);
   return [...new Set(requested)];
 }
+
+// The update notifier goes with whatever is selected.
+export const withNotifier = (selected) => (selected.includes("mods-updates") ? selected : [...selected, "mods-updates"]);

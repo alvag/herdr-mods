@@ -6,6 +6,7 @@ Personal [Herdr](https://herdr.dev) mods, each installed on its own so every com
 |---|---|
 | [`open-in-editor`](docs/open-in-editor.md) | Opens a space's folder in VS Code, WebStorm or Finder/Explorer, from the space right-click menu |
 | [`file-actions`](docs/file-actions.md) | Click a file in the Files panel to read it in a tab (preview tab, double-click pins; ⌘C then ⌘⌥C copies with file and lines); right-click a file or folder: copy its path, reveal it, open it in an editor, send it to an agent, create a file or folder, move it to the Trash |
+| [`mods-updates`](docs/mods-updates.md) | Always installed with the others: a small block in the status bar that shows `herdr-mods ↑` (and a notification) when GitHub has a newer version, once a day; click it to update |
 
 ## Install
 
@@ -38,6 +39,8 @@ git pull && npm run install-mod -- file-actions          # from a clone
 - `npx` checks GitHub on every run, so it installs `main`'s latest commit even with an older copy in its cache. To install a given version, add its commit: `npx github:alvag/herdr-mods#5241310 file-actions`.
 - Installing again reloads the mod: Herdr closes the tabs it had open (such as `file-actions`' file tabs).
 - Clones of Herdr's own mods and layouts (`my-files`, `my-main`, `my-menu`, `my-spaces`) are made only when missing, so updating keeps them as they are and they don't get Herdr's updates. To take a newer Herdr version of one, move the clone out of `~/.config/herdr-app/` and install again; each mod's page in [`docs/`](docs/) says when and how.
+
+An indicator appears in the status bar of `my-main` when GitHub's `main` is ahead of what is installed here ([`mods-updates`](docs/mods-updates.md)); click it to run the update for the mods you have.
 
 Herdr loads every folder in `~/.config/herdr-app/mods/`; there is no on/off switch, so choosing happens here. `HERDR_APP_HOME` picks another home.
 
