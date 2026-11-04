@@ -67,10 +67,26 @@ function location() {`);
     `  if (pane?.mod === "${MOD}") { const v = viewerLocation(f?.tab, space?.id); if (v) return (lastLocation = v); }
   if (pane?.mod === "${MOD}" && lastLocation`);
 
+  // Optional icons, from the file-icons mod (its icon table and SVGs stay where they are).
+  const table = join(home, "mods", "file-icons", "icons.js");
+  const icons = existsSync(table);
+  if (icons) {
+    cpSync(table, join(home, "mods", FILES, "file-icons-table.js"));
+    for (const f of ["my-files-icon-match.js", "my-files-icons.js"]) cpSync(join(repo, "scripts", "wire", f), join(home, "mods", FILES, f));
+    patch(files, `from "./my-files-icons.js"`,
+      `import { View, div, svg } from "gpui-kit";`,
+      `import { View, div, svg, image } from "gpui-kit";
+import { icon } from "./my-files-icons.js";`);
+    patch(files, `.child(image(icon(`,
+      `        .child(svg(\`mods/${FILES}/\${entry.dir ? "folder" : "file"}.svg\`).size(14).flex_none().text_color(t.muted))`,
+      `        .child(image(icon(path, entry.dir, open, Boolean(settings().dark))).size(16).flex_none())`);
+  }
+
   patch(join(home, "layouts", `${LAYOUT}.json`), `"mod": "${FILES}"`,
     `"mod": "files"`,
     `"mod": "${FILES}"`);
 
   herdr("do", "layout.switch", JSON.stringify({ name: LAYOUT }));
-  return { checks: [FILES], note: `right-click a file or folder in the Files panel of layout "${LAYOUT}".` };
+  const note = `right-click a file or folder in the Files panel of layout "${LAYOUT}".`;
+  return { checks: [FILES], note: icons ? note : `${note} No file icons: they need mods/file-icons (herdr.dev/mods/cybertron288/file-icons), then install again.` };
 }

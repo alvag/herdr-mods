@@ -68,12 +68,21 @@ The editor table and launch order are copied from [`open-in-editor`](open-in-edi
 
 On Windows, paths reach PowerShell as UTF-8 base64, never inside its source: PowerShell also ends strings at curly quotes, so quoting a file name isn't safe. On macOS before 15, the first delete asks once to let Herdr control Finder.
 
+## File icons (optional)
+
+The Files panel can show VS Code Material Icon Theme icons. Install [`file-icons`](https://herdr.dev/mods/cybertron288/file-icons) as its page says, then install `file-actions` again: with `~/.config/herdr-app/mods/file-icons/icons.js` present, the installer gives `my-files` the icon table and the matching code. The icons come from `mods/file-icons` (MIT, Material Icon Theme), which stays installed as the icon store; removing it blanks the icons, so reinstall it or clone `my-files` again. Without it the installer changes nothing and says so.
+
+`file-icons` is an optional dependency this repo doesn't manage: the installer doesn't install it, pin its version or watch it for updates (`mods-updates` only checks herdr-mods). `my-files` keeps the copy of its icon table made at install time, so **after updating `file-icons`, install `file-actions` again**; otherwise icons renamed in the new version show blank.
+
+The matching (`scripts/wire/my-files-icon-match.js`) is ported from file-icons' `main.js`: a path rule beats a name, a name beats an extension, the longest extension wins, case-insensitive, light and open-folder variants.
+
 ## Wiring (`scripts/wire/file-actions.mjs`)
 
 1. Clones Herdr's read-only `files` mod as `my-files`, and the `main` layout as `my-main`, if they don't exist yet.
 2. Copies `mods/file-actions/actions.js` into `my-files/file-actions.js` and `mods/file-actions/panel.js` into `my-files/file-actions-panel.js` on every install. A mod can't import from another mod's folder; the clone uses them to size the popup, open files in tabs, and find a file tab's folder.
 3. Patches `my-files`: each row opens `file-actions` as a popup on right-click; a click on a file calls `openFile()` (preview tab, pin, no duplicates); while a file tab is focused, `location()` returns that file's folder. An install from an earlier version, with one new tab per click, is moved over.
-4. Points `my-main`'s Files panel at `my-files`, switches to `my-main`; the installer then checks `my-files` too.
+4. Only when `mods/file-icons/icons.js` exists: copies it into `my-files/file-icons-table.js`, with `my-files-icon-match.js` and `my-files-icons.js` from `scripts/wire/`, on every install, and patches each row to draw `image(icon(...))` instead of the plain folder/file SVG.
+5. Points `my-main`'s Files panel at `my-files`, switches to `my-main`; the installer then checks `my-files` too.
 
 `my-main` is shared with [`open-in-editor`](open-in-editor.md); each one patches only its own part.
 
@@ -101,7 +110,7 @@ grep -A3 cloned_from $H/mods/my-files/mod.json   # the version my-files was clon
 diff $H/mods/files/main.js $H/mods/my-files/main.js
 ```
 
-The `diff` should show only this mod's patches: the `openOverlay` / `run` / `menuHeight` / `openFile, viewerLocation` imports, `lastLocation` and `viewerLocation` in `location()`, the row's `.on_click` (`openFile`) and `.on_mouse_down("right", …)`, and the icon paths Herdr rewrites to `mods/my-files/` when it clones. Anything else means Herdr changed the Files panel. Then clone it again:
+The `diff` should show only this mod's patches: the `openOverlay` / `run` / `menuHeight` / `openFile, viewerLocation` imports, `lastLocation` and `viewerLocation` in `location()`, the row's `.on_click` (`openFile`) and `.on_mouse_down("right", …)`, and the `image` / `icon` imports and the row's icon line (with file-icons), and the icon paths Herdr rewrites to `mods/my-files/` when it clones. Anything else means Herdr changed the Files panel. Then clone it again:
 
 ```sh
 rm -rf ~/.config/herdr-app/mods/my-files
