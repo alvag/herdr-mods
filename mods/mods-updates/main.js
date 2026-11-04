@@ -10,7 +10,7 @@
 import { View, div } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { exec, notify, run, setShared, shared, theme, window as appWindow } from "herdr";
-import { REPO, DAY, contentsUrl, externalNotice, folderUrl, isDue, isOutdated, label, openCommand, outdatedExternal, parseLsRemote, parseTree, updatePlan, waitMs } from "./check.js";
+import { contentsUrl, curlArgs, externalNotice, folderUrl, isDue, isOutdated, label, lsRemoteArgs, nextCheckMs, openCommand, outdatedExternal, parseLsRemote, parseTree, updatePlan, waitMs } from "./check.js";
 import version from "./version.js";
 
 const KEY = "herdr-mods.updates";
@@ -22,9 +22,9 @@ export default class ModsUpdates extends View {
       for (;;) {
         const wait = waitMs(state().checked ?? null, Date.now());
         if (wait) await new Promise((done) => cx.timer.after(wait, done));
-        await this.check();
+        const answered = await this.check();
         cx.notify();
-        await new Promise((done) => cx.timer.after(DAY, done));
+        await new Promise((done) => cx.timer.after(nextCheckMs(answered), done));
       }
     });
   }
@@ -33,13 +33,14 @@ export default class ModsUpdates extends View {
     return updatePlan(version.source, Object.keys(version.mods), appWindow()?.platform);
   }
 
+  // Resolves false when nothing answered (offline), so the loop tries again sooner.
   async check() {
     const ext = version.external ?? {};
-    if (!(Object.keys(version.mods).length || Object.keys(ext).length) || !isDue(state().checked ?? null, Date.now())) return;
+    if (!(Object.keys(version.mods).length || Object.keys(ext).length) || !isDue(state().checked ?? null, Date.now())) return true;
     const was = state();
     const next = { ...was };
     let answered = false;
-    const r = Object.keys(version.mods).length ? await exec("git", ["ls-remote", REPO, "refs/heads/main"]).catch(() => null) : null;
+    const r = Object.keys(version.mods).length ? await exec("git", lsRemoteArgs()).catch(() => null) : null;
     const remote = r?.code === 0 ? parseLsRemote(r.stdout) : null;
     if (remote) {
       answered = true;
@@ -54,7 +55,7 @@ export default class ModsUpdates extends View {
     next.extNotified = { ...was.extNotified };
     const curl = appWindow()?.platform === "windows" ? "curl.exe" : "curl";
     for (const [name, { repo, path }] of Object.entries(ext)) {
-      const e = await exec(curl, ["-fsS", "-H", "Accept: application/vnd.github+json", contentsUrl(repo, path)]).catch(() => null);
+      const e = await exec(curl, curlArgs(contentsUrl(repo, path))).catch(() => null);
       const tree = e?.code === 0 ? parseTree(e.stdout, path) : null;
       next.external[name] = tree ?? was.external?.[name];
       if (tree) answered = true;
@@ -63,9 +64,10 @@ export default class ModsUpdates extends View {
         notify(externalNotice(name, ext[name]));
       }
     }
-    if (!answered) return;
+    if (!answered) return false;
     next.checked = Date.now();
     setShared(KEY, next);
+    return true;
   }
 
   open(names, plan) {

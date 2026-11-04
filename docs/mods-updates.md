@@ -18,7 +18,7 @@ npm run install-mod -- mods-updates               # from a clone
 - Clicking the block or the notification opens a tab, `Update herdr-mods`, that runs the update for the mods installed here:
   - installed with `npx`: `npx --yes github:alvag/herdr-mods <mods>`
   - installed from a clone: `git pull --ff-only && npm run install-mod -- <mods>`, in that clone
-- Any failure (no `git`, offline, no mods recorded) stays silent: the block shows nothing.
+- Any failure (no `git`, offline, no mods recorded) stays silent: the block shows nothing. When nothing answered (offline), it tries again in an hour instead of a day. `git` and `curl` give up on a request stalled for 30 s.
 
 Which mods (each with the commit it was installed at) and how they were installed is recorded by the installer in `~/.config/herdr-app/mods/mods-updates/version.js` (never in the repo). Installing again updates only the commits of the mods just installed and keeps the others, so the block shows while any recorded mod is behind. Mods installed before the notifier have no known commit and show as an update once. The last answer from GitHub is in `shared("herdr-mods.updates")`.
 

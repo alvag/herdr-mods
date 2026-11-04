@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { contentsUrl, externalNotice, folderUrl, label, openCommand, outdatedExternal, parseTree } from "../mods/mods-updates/check.js";
+import { contentsUrl, curlArgs, externalNotice, folderUrl, label, openCommand, outdatedExternal, parseTree } from "../mods/mods-updates/check.js";
 import { addEntry, parseRegistry, parseTrackArgs, removeEntry } from "../scripts/external.mjs";
 import { parseVersion, renderVersion } from "../scripts/version.mjs";
 
@@ -96,4 +96,13 @@ test("installer untrack/track errors and untrack refresh, in a scratch home", ()
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
+});
+
+test("URLs encode each path segment and keep the slashes", () => {
+  assert.equal(contentsUrl("o/r", "my mods/a#b/x"), "https://api.github.com/repos/o/r/contents/my%20mods/a%23b?ref=HEAD");
+  assert.equal(folderUrl("o/r", "my mods/x?y"), "https://github.com/o/r/tree/HEAD/my%20mods/x%3Fy");
+});
+
+test("curl gives up on a stalled request", () => {
+  assert.deepEqual(curlArgs("https://x"), ["-fsS", "--connect-timeout", "10", "--max-time", "30", "-H", "Accept: application/vnd.github+json", "https://x"]);
 });

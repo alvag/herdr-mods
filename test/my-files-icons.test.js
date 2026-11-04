@@ -52,3 +52,10 @@ test("light overrides only when not dark", () => {
   assert.equal(f("readme.md", true), I("readme"));
   assert.equal(f("a.json", false), I("json"));
 });
+
+test("a table without light or a section falls back instead of throwing", () => {
+  const bare = { file: "file", folder: "folder", fileExtensions: { ts: "typescript" } };
+  assert.equal(iconFor(bare, "a/b.ts", false, false, false), I("typescript"));
+  assert.equal(iconFor(bare, "readme.md", false, false, false), I("file"));
+  assert.equal(iconFor(bare, "src", true, true, false), I("folder-open"));
+});

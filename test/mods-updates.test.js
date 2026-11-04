@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DAY, isDue, isOutdated, parseLsRemote, updatePlan, waitMs } from "../mods/mods-updates/check.js";
+import { DAY, HOUR, isDue, isOutdated, lsRemoteArgs, nextCheckMs, parseLsRemote, REPO, updatePlan, waitMs } from "../mods/mods-updates/check.js";
 import { commitFromLock, parseVersion, recordedMods, renderVersion } from "../scripts/version.mjs";
 import { withNotifier } from "../scripts/select.mjs";
 import { withUpdatesBlock } from "../scripts/wire/mods-updates.mjs";
@@ -129,4 +129,13 @@ test("layout: a second run changes nothing (null)", () => {
 
 test("layout: no status block fails naming the file", () => {
   assert.throws(() => withUpdatesBlock({ id: "root", type: "row", children: [] }, "my-main.json"), /my-main\.json: status block not found/);
+});
+
+test("a check nobody answered (offline) is tried again in an hour, not a day", () => {
+  assert.equal(nextCheckMs(true), DAY);
+  assert.equal(nextCheckMs(false), HOUR);
+});
+
+test("git ls-remote gives up on a stalled transfer", () => {
+  assert.deepEqual(lsRemoteArgs(), ["-c", "http.lowSpeedLimit=1000", "-c", "http.lowSpeedTime=30", "ls-remote", REPO, "refs/heads/main"]);
 });

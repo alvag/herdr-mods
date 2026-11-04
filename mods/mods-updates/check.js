@@ -2,6 +2,7 @@
 // that updates it. `platform` is this computer's ("macos", "windows", ...).
 export const REPO = "https://github.com/alvag/herdr-mods.git";
 export const DAY = 24 * 60 * 60 * 1000;
+export const HOUR = 60 * 60 * 1000;
 const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 // Text as a PowerShell expression that never parses the text itself (UTF-8
@@ -36,6 +37,13 @@ export const isOutdated = (mods, remote) => Boolean(remote) && Object.values(mod
 export const waitMs = (last, now) => (last == null ? 0 : Math.max(0, last + DAY - now));
 export const isDue = (last, now) => waitMs(last, now) === 0;
 
+// After a check: a day when anything answered, else (offline) an hour.
+export const nextCheckMs = (answered) => (answered ? DAY : HOUR);
+
+// exec has no timeout: both give up on a stalled transfer themselves.
+export const lsRemoteArgs = () => ["-c", "http.lowSpeedLimit=1000", "-c", "http.lowSpeedTime=30", "ls-remote", REPO, "refs/heads/main"];
+export const curlArgs = (url) => ["-fsS", "--connect-timeout", "10", "--max-time", "30", "-H", "Accept: application/vnd.github+json", url];
+
 // Arguments of `tab.new` that run the update. A clone pulls and installs in its
 // folder; names reach the shell as arguments, never inside its script.
 export function updatePlan(source, mods, platform) {
@@ -52,8 +60,9 @@ export function updatePlan(source, mods, platform) {
 
 // Other people's mods, tracked as { name: { repo, path, tree } }: GitHub's
 // contents listing of the folder's parent says the tree sha of the folder.
-export const contentsUrl = (repo, path) => `https://api.github.com/repos/${repo}/contents/${path.split("/").slice(0, -1).join("/")}?ref=HEAD`;
-export const folderUrl = (repo, path) => `https://github.com/${repo}/tree/HEAD/${path}`;
+const encoded = (segments) => segments.map(encodeURIComponent).join("/");
+export const contentsUrl = (repo, path) => `https://api.github.com/repos/${encoded(repo.split("/"))}/contents/${encoded(path.split("/").slice(0, -1))}?ref=HEAD`;
+export const folderUrl = (repo, path) => `https://github.com/${encoded(repo.split("/"))}/tree/HEAD/${encoded(path.split("/"))}`;
 
 // The sha of the directory `path` in a contents response, else null.
 export function parseTree(stdout, path) {

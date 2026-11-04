@@ -9,7 +9,9 @@
 const DIR = "mods/file-icons";
 const bare = name => name.replace(/^__(.+)__$/, "$1").replace(/^[._-]/, "");
 const opened = id => id.endsWith("_light") ? `${id.slice(0, -6)}-open_light` : `${id}-open`;
-const lookup = (icons, table, key, dark) => (dark ? undefined : icons.light[table][key]) ?? icons[table][key];
+// file-icons isn't ours: a table missing a section falls back to the plain icons
+// instead of breaking the panel's render.
+const lookup = (icons, table, key, dark) => (dark ? undefined : icons.light?.[table]?.[key]) ?? icons[table]?.[key];
 
 export function iconFor(icons, path, dir, open, dark) {
   const parts = path.toLowerCase().split("/"), name = parts[parts.length - 1];
