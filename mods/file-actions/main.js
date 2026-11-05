@@ -15,7 +15,7 @@ import {
   window as appWindow,
 } from "herdr";
 import {
-  checkName, claimTab, contextOf, copyPlan, createError, pastePlan, createPlan, deletePlan, languageOf, mentionOf, previewOf, menuItems, openPlan, pasteBlocker, pasteSteps, pathsOf, pickAgent, reloadOnFocus, revealPlan, runSteps, targetFolder,
+  checkName, claimTab, contextOf, copyPlan, createError, createPlan, deletePlan, languageOf, mentionOf, previewOf, menuItems, openPlan, pasteBlocker, pasteSteps, pathsOf, pickAgent, reloadOnFocus, revealPlan, runSteps, targetFolder,
 } from "./actions.js";
 
 // Runs [program, args, options?]; resolves when it worked, else throws its reason.
@@ -211,14 +211,12 @@ export default class FileActions extends View {
 
   // Herdr's editor tells no selection: the text copied from it with ⌘C is found
   // in the file to know its lines, then put back on the clipboard with them.
-  async copyContext(view) {
-    const plan = pastePlan(this.platform);
-    if (!plan) return notify({ title: "Not supported on this platform.", level: "warning" });
-    const r = await exec(plan[0], plan[1]);
-    if (r.code !== 0) throw new Error(r.stderr?.trim() || `${plan[0]} exited with ${r.code}`);
-    const ctx = contextOf(this.text ?? "", r.stdout ?? "", view);
+  // Both ends use the app's own clipboard through the key handler's cx (it is
+  // not kept past that call).
+  copyContext(view, cx) {
+    const ctx = contextOf(this.text ?? "", cx.read_from_clipboard() ?? "", view);
     if (!ctx) return notify({ title: "Copy the text first", body: "Select it and press ⌘C (Ctrl+C), then this again.", level: "warning" });
-    await attempt(copyPlan(ctx.text, this.platform));
+    cx.write_to_clipboard(ctx.text);
     notify({ title: "Copied with context", body: ctx.text.split("\n").slice(0, 2).join(" · ") + (ctx.unique ? "" : " (first match in the file)"), level: "success", timeout: 2500 });
   }
 
@@ -236,7 +234,7 @@ export default class FileActions extends View {
       .on_key_down((e, cx) => {
         if (e.key !== "c" || !e.modifiers.alt || !(e.modifiers.platform || e.modifiers.control)) return;
         cx.stop_propagation();
-        cx.spawn(async () => { try { await this.copyContext(entry.view); } catch (err) { fail("Could not copy with context", err); } });
+        try { this.copyContext(entry.view, cx); } catch (err) { fail("Could not copy with context", err); }
       })
       .child(h_flex().h(36).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
         .child(div().flex_1().min_w(0).truncate().font_semibold().child(entry.view))

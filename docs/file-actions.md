@@ -35,7 +35,7 @@ Lines: 11-17
 ```
 ````
 
-Herdr's editor tells no selection, so it's two keys: ⌘C copies the text, ⌘⌥C finds it in the file for its lines and wraps it. Text that's in the file more than once takes the first place (the notification says "first match"). Text not from the file (nothing copied first) gets a reminder instead. The tab's header shows the keys.
+Herdr's editor tells no selection, so it's two keys: ⌘C copies the text, ⌘⌥C finds it in the file for its lines and wraps it. The context shortcut reads and writes the system clipboard through Herdr's native API (`read_from_clipboard` / `write_to_clipboard`), without launching `pbpaste` / `pbcopy`. Text that's in the file more than once takes the first place (the notification says "first match"). Text not from the file (nothing copied first) gets a reminder instead. The tab's header shows the keys.
 
 The `◌` stands for italics: Herdr's tab bar draws names as plain text, and italics would mean cloning it too. A tab reloads when its file changes on disk (on this computer); a file on another machine can't be watched, so its tab reloads when you come back to the Herdr window. While a file tab is focused, the Files panel keeps showing that file's folder. Which file each tab shows lives in `shared("file-actions.tabs")`; closed tabs are dropped from it on the next click.
 
