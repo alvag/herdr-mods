@@ -38,6 +38,7 @@ function el(kind) {
     id: (v) => { node.ident = v; },
     on_click: (f) => { node.click = f; },
     on_change: (f) => { node.change = f; },
+    on_key_down: (f) => { node.key = f; },
     checked: (v) => { node.checked = v; },
     child: (c) => { node.kids.push(c); },
     children: (cs) => { node.kids.push(...cs); },
@@ -94,9 +95,9 @@ after(() => {
 beforeEach(() => {
   const areas = [];
   Object.assign(globalThis.__ui, {
-    store: {}, sets: 0, overlays: [], closed: [], notes: [], execs: [], areas, platform: "macos",
+    store: {}, timers: [], sets: 0, overlays: [], closed: [], notes: [], execs: [], areas, platform: "macos",
     files: { [PATH]: TEXT }, props: { view: "src/a.js", root: "/repo" },
-    area: (o) => { const a = { text: o?.value ?? "", released: 0, value() { return this.text; }, set_value(v) { this.text = v; }, focus() {}, on() {}, release() { this.released++; return true; } }; areas.push(a); return a; },
+    area: (o) => { const a = { text: o?.value ?? "", released: 0, value() { return this.text; }, set_value(v) { this.text = v; }, focuses: 0, focus() { this.focuses++; }, on() {}, release() { this.released++; return true; } }; areas.push(a); return a; },
   });
 });
 
@@ -105,7 +106,7 @@ function context(clip) {
   return {
     read_from_clipboard: () => clip.text,
     write_to_clipboard: (t) => { clip.text = t; clip.writes++; },
-    notify() {}, stop_propagation() {}, focus_handle: () => ({ focus() {} }), timer: { after() {} },
+    notify() {}, stop_propagation() {}, focus_handle: () => ({ focus() {} }), timer: { after: (_ms, f) => globalThis.__ui.timers.push(f) },
     spawn: (fn) => fn({ read_from_clipboard() { throw new Error("stale cx"); }, notify() {}, timer: { after() {} } }),
   };
 }
@@ -347,4 +348,37 @@ test("with no notes the panel explains how to add one", async () => {
   assert.match((await viewer()).text, /Select text, press ⌘C, then Add note\./);
   globalThis.__ui.platform = "windows";
   assert.match((await viewer()).text, /Select text, press Ctrl\+C, then Add note\./);
+});
+
+test("closing the dialog while Save waits for the file stores nothing and touches nothing after it", async () => {
+  const closers = {
+    Cancel: (d) => d.press("fa-note-cancel"),
+    Escape: async (d) => { find(d.tree, "file-actions-note").key({ key: "escape" }, context({})); },
+    "host close": () => {},
+  };
+  for (const [name, close] of Object.entries(closers)) {
+    const store = stored(note("n1", "alpha beta", "First")), before = JSON.stringify(store);
+    Object.assign(globalThis.__ui, { store: { [NOTES]: store }, sets: 0, closed: [], timers: [] });
+    let read;
+    globalThis.__ui.files[PATH] = new Promise((done) => { read = done; });
+    const d = await dialog({ note: "add", file: FILE, range: { first: 2, last: 2, column: 0 }, excerpt: "gamma delta" });
+    const area = globalThis.__ui.areas.at(-1);
+    area.set_value("Late");
+    await d.press("fa-note-save");
+    await close(d);
+    await d.view.close();
+    await d.view.close();
+    read(TEXT);
+    await tick();
+    globalThis.__ui.timers.forEach((f) => f());
+    d.draw();
+    const u = globalThis.__ui;
+    assert.equal(u.sets, 0, name);
+    assert.equal(JSON.stringify(u.store[NOTES]), before, name);
+    assert.deepEqual(u.closed, name === "host close" ? [] : ["ov1"], name);
+    assert.equal(area.released, 1, name);
+    assert.equal(area.focuses, 1, name);
+    assert.doesNotMatch(d.text, /Cannot read|changed since/, name);
+    u.files[PATH] = TEXT;
+  }
 });

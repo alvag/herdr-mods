@@ -127,6 +127,7 @@ export class NoteDialog {
     this.p = p;
     this.error = null;
     this.busy = false;
+    this.closed = false;
     let value = "";
     try {
       if (p.note === "edit") {
@@ -141,18 +142,30 @@ export class NoteDialog {
     }
     this.area = TextareaState.new({ placeholder: "Write your note…", value, rows: 5 });
     this.area.focus();
-    cx.timer.after(600, () => this.area.focus());
+    cx.timer.after(600, () => { if (!this.closed) this.area.focus(); });
   }
 
+  // Cancel and Esc mark the dialog closed at once, before Herdr calls close(), so
+  // a Save still waiting for the file can't store anything afterwards.
+  dismiss() {
+    if (this.closed) return;
+    this.closed = true;
+    closeOverlay(this.p.overlay);
+  }
+
+  // Herdr's cleanup; it may come after dismiss(), so it only releases once.
   close() {
+    if (this.released) return;
+    this.closed = this.released = true;
     this.area.release();
   }
 
   // Keeps the dialog open with the reason when the change can't be made.
   commit(change, cx) {
+    if (this.closed) return;
     try {
       setShared(NOTES, change());
-      closeOverlay(this.p.overlay);
+      this.dismiss();
     } catch (e) {
       this.error = reason(e);
       cx.notify();
@@ -172,11 +185,13 @@ export class NoteDialog {
         let text;
         try { text = await readTextFile(`${file.root}/${file.view}`, { on: file.on ?? null }); }
         catch (e) { throw new Error(`Cannot read the file: ${reason(e)}`); }
+        if (this.closed) return;
         if (typeof text !== "string" || !isCurrent(text, { range, excerpt })) {
           throw new Error("The file changed since the text was copied. Close this and copy it again.");
         }
         this.commit(() => addNote(shared(NOTES), file, { range, excerpt }, value).state, cx);
       } catch (e) {
+        if (this.closed) return;
         this.error = reason(e);
         cx.notify();
       } finally { this.busy = false; }
@@ -186,7 +201,7 @@ export class NoteDialog {
   render(t) {
     const edit = this.p.note === "edit", a = this.about;
     return v_flex().id("file-actions-note").w_full().min_h(0).p(18).gap(10).bg(t.popover).text_color(t.foreground)
-      .on_key_down((e, cx) => { if (e.key === "escape") { closeOverlay(this.p.overlay); cx.stop_propagation(); } })
+      .on_key_down((e, cx) => { if (e.key === "escape") { this.dismiss(); cx.stop_propagation(); } })
       .child(h_flex().items_center()
         .child(div().flex_1().text_size(15).font_semibold().child(edit ? "Edit note" : "Add note"))
         .child(div().text_size(11).text_color(t.dim).child("Esc")))
@@ -197,7 +212,7 @@ export class NoteDialog {
         .bg(t.background).text_size(12.8).text_color(t.foreground))
       .when(Boolean(this.error), (el) => el.child(div().text_size(11.5).text_color(t.blocked).child(this.error)))
       .child(h_flex().pt(6).gap(8).justify_end()
-        .child(button(t, "fa-note-cancel", "Cancel", { action: () => closeOverlay(this.p.overlay) }))
+        .child(button(t, "fa-note-cancel", "Cancel", { action: () => this.dismiss() }))
         .child(button(t, "fa-note-save", "Save", { primary: true, action: a ? (_e, cx) => this.save(cx) : null })));
   }
 }
