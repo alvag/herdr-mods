@@ -9,6 +9,21 @@ Personal [Herdr](https://herdr.dev) mods, each installed on its own so every com
 | [`mods-updates`](docs/mods-updates.md) | Always installed with the others: a small block in the status bar that shows `herdr-mods ↑` (and a notification) when GitHub has a newer version, once a day; click it to update |
 | [`usage-limits`](docs/usage-limits.md) | Every Claude Code / Codex / OpenCode Go limit window in the status bar, with one panel on hover; forked from [`nozikov/herdr-usage-limits`](https://github.com/nozikov/herdr-usage-limits) (MIT) with our OpenCode Go provider added |
 
+## Third-party mods
+
+Mods we use that are not in this repo. The live registry (repo, path, pinned
+tree sha) is `~/.config/herdr-app/herdr-mods.external.json`, managed with
+[`track`/`untrack`](docs/mods-updates.md#other-peoples-mods); `mods-updates`
+shows `↑` when GitHub has a newer tree. This installer never installs them:
+ copy each one in once, then `track` it.
+
+| Mod | Origin | Role here |
+|---|---|---|
+| `usage-limits` (forked in) | [`nozikov/herdr-usage-limits`](https://github.com/nozikov/herdr-usage-limits) (MIT) | Vendored at `mods/usage-limits`: upstream's Claude/Codex providers unchanged, our OpenCode Go provider added. Updates come from this repo, not upstream — re-vendor by hand to take upstream changes |
+| `image-viewer` | [`dougcunha/herdr-mods`](https://github.com/dougcunha/herdr-mods/tree/main/image-viewer-app) | Tracked external. [`file-actions`](docs/file-actions.md) opens images from the Files panel in it when installed; without it images keep the text tab |
+| `file-icons` | [`cybertron288/herdr-mods`](https://github.com/cybertron288/herdr-mods) | Tracked external, optional: VS Code Material icons in the Files panel; `file-actions` picks it up when present |
+| `desktop-notifications` | [`benjaminsicard/herdr-mods`](https://github.com/benjaminsicard/herdr-mods) | Tracked external: agents' "needs you" / "finished" alerts in the system notification center |
+
 ## Install
 
 Without cloning (needs Node and `herdr-app` on the `PATH`):
