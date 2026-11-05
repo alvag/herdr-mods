@@ -88,9 +88,22 @@ The matching (`scripts/wire/my-files-icon-match.js`) is ported from file-icons' 
 
 If a Herdr update changes the anchors it patches, it stops and names the file.
 
-## File notes data model (MVP foundation)
+## File notes
 
-> **Not usable yet.** Only the model in `mods/file-actions/notes.js` exists. There is no Add note dialog, panel or send to agent; those come in later steps. Copy with context is unchanged.
+> **In progress.** Notes can be added, edited, deleted and ticked in a file tab. **Sending them to an agent is not available yet**; it comes in a later step, so the ticks do nothing for now. Copy with context is unchanged. Not yet checked on a real Herdr window.
+
+In a file tab, select text, press ⌘C (Ctrl+C), then click **Add note** in the tab's header. Herdr's editor tells no selection, so the note is found like copy with context does, from the clipboard text (which Add note only reads, never changes). A dialog shows the file, the lines and the copied text, with a box for your note; **Save** stores it, **Cancel** (or Esc) discards it.
+
+- **Panel:** every note of the file is a card on the right of the tab: lines, copied text, your note, **Edit**, **Delete** and a **Select** tick. A file with no notes shows how to add one. Notes belong to the file, not to the tab, so they are back when it is opened again, in any tab.
+- **Add note refuses** (with a warning, no dialog) text that is empty, isn't in the file, or appears more than once (select a longer piece). It is off while the file isn't loaded (missing, unreadable or binary).
+- **Save** reads the file again: if the copied text is no longer at its lines, the dialog stays open and says so; nothing is stored. A blank note shows `Write a note first.` and stays open.
+- **Edit** changes only the note's text; the original lines stay. **Delete** asks `Delete this note?` on the card first.
+- **Stale notes:** when the file changed and the text is no longer at the note's lines, the card says so. The note keeps its original lines; it is never moved.
+- **Corrupted saved notes:** the panel shows the error, Add note is off and nothing is written, so the saved notes are never replaced.
+- **Select** ticks (`n selected` in the panel's header) live in the open tab only and start empty for each file; they are not saved.
+- The copied text and your note are drawn as plain text, never as markdown.
+
+### File notes data model
 
 Notes are kept in `shared("file-actions.notes")` (exported as `NOTES`) as `{ next, notes }`. Each note has an `id` (`n1`, `n2`, ... never reused), the file (`on`, `root`, `view`: machine, panel root and relative path, with no machine stored as `null`), the original range, the copied `excerpt` (LF line endings) and the user's `note`. Notes belong to the file, not to a tab, and a file on another machine or under another root has its own notes.
 

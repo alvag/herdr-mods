@@ -4,8 +4,11 @@
 //   popup  { root, path, dir, on }               the menu for one entry
 //   dialog { create: "file" | "folder", root, folder, on }   the name of a new entry
 //   dialog { remove: true, root, path, dir }     confirms moving an entry to the Trash
+//   dialog { note: "add", file, range, excerpt }  the text of a new note (notes-ui.js)
+//   dialog { note: "edit", id }                  the text of a note already saved
 //   tab    { key }                               a file, read-only, as a whole tab (tab.new); which
-//                                                file is shared("file-actions.tabs")[key] (see panel.js)
+//                                                file is shared("file-actions.tabs")[key] (see panel.js);
+//                                                the file's notes are drawn beside it
 // `root` is the panel's folder, `path` the entry relative to it ("/" separated),
 // `on` the machine of a space on another computer (null here).
 import { View, div, svg } from "gpui-kit";
@@ -17,6 +20,7 @@ import {
 import {
   checkName, claimTab, contextOf, copyPlan, createError, createPlan, deletePlan, languageOf, mentionOf, previewOf, menuItems, openPlan, pasteBlocker, pasteSteps, pathsOf, pickAgent, reloadOnFocus, revealPlan, runSteps, targetFolder,
 } from "./actions.js";
+import { NoteDialog, NotesPanel, startNote } from "./notes-ui.js";
 
 // Runs [program, args, options?]; resolves when it worked, else throws its reason.
 async function attempt([cmd, args, opts], on) {
@@ -55,6 +59,10 @@ export default class FileActions extends View {
     this.at = 0;
     if (p.key) return this.register(cx);
     if (p.view) return;
+    if (p.note) {
+      this.noteDialog = new NoteDialog(p, cx);
+      return;
+    }
     if (p.create) {
       this.name = "";
       this.error = null;
@@ -64,6 +72,10 @@ export default class FileActions extends View {
       this.input.focus();
       cx.timer.after(600, () => this.input.focus());
     } else this.handle.focus();
+  }
+
+  async close() {
+    this.noteDialog?.close();
   }
 
   choose(item, cx) {
@@ -206,7 +218,7 @@ export default class FileActions extends View {
 
   render(cx) {
     const p = props() ?? {};
-    return p.key || p.view ? this.viewer(cx) : p.create ? this.dialog() : p.remove ? this.confirm() : this.menu();
+    return p.key || p.view ? this.viewer(cx) : p.note ? this.noteDialog.render(theme()) : p.create ? this.dialog() : p.remove ? this.confirm() : this.menu();
   }
 
   // Herdr's editor tells no selection: the text copied from it with ⌘C is found
@@ -220,14 +232,26 @@ export default class FileActions extends View {
     notify({ title: "Copied with context", body: ctx.text.split("\n").slice(0, 2).join(" · ") + (ctx.unique ? "" : " (first match in the file)"), level: "success", timeout: 2500 });
   }
 
+  // Add note: the text copied with ⌘C is found in the file loaded now, and the
+  // dialog opens for it. The clipboard is read here, in the click's own cx, and
+  // is only read, never changed.
+  addNote(file, cx) {
+    try { startNote(file, this.text, cx.read_from_clipboard() ?? ""); }
+    catch (e) { notify({ title: "Could not add a note", body: e?.message ?? String(e), level: "warning" }); }
+  }
+
   viewer(cx) {
     // A tab opened by an earlier version names its file in its props.
     const t = theme(), p = props(), entry = p.view ? { view: p.view, root: p.root, on: p.on } : (shared(TABS) ?? {})[p.key];
     if (!entry) return div().size_full().p(12).bg(t.background).text_color(t.dim).child("This file tab is no longer tracked. Close it and open the file again.");
     const showing = `${entry.on ?? ""}|${entry.root}/${entry.view}`;
-    if (showing !== this.showing) { this.showing = showing; this.follow(entry, cx); }
+    this.notes ??= new NotesPanel();
+    if (showing !== this.showing) { this.showing = showing; this.notes.reset(); this.follow(entry, cx); }
     this.refresh(entry, cx);
     const keys = this.platform === "macos" ? "⌘C, then ⌘⌥C" : "Ctrl+C, then Ctrl+Alt+C";
+    // Notes belong to the file, not to this tab. Adding one needs the file's text loaded.
+    const file = { on: entry.on ?? null, root: entry.root, view: entry.view }, state = this.notes.state(file);
+    const add = this.code ? (_e, cx) => this.addNote(file, cx) : null;
     return v_flex().id("file-actions-view").size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background)
       .border_1().border_color(t.border).text_color(t.foreground).text_size(13)
       // Keys reach this element while the editor inside it is focused.
@@ -239,9 +263,12 @@ export default class FileActions extends View {
       .child(h_flex().h(36).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
         .child(div().flex_1().min_w(0).truncate().font_semibold().child(entry.view))
         .when(DESKTOP_PLATFORMS.includes(this.platform), (el) => el.child(div().flex_none().text_size(11.5).text_color(t.dim).child(`${keys}: copy with context`)))
+        .child(this.notes.addButton(t, state, add))
         .child(div().flex_none().text_size(12).text_color(t.dim).child(entry.root.split(/[\\/]/).pop())))
-      .child(this.code ? Editor.new(this.code).flex_1().min_h(0)
-        : div().p(12).text_color(t.dim).child(this.viewError ?? "Loading file…"));
+      .child(h_flex().flex_1().min_h(0)
+        .child(this.code ? Editor.new(this.code).flex_1().min_w(0).h_full()
+          : div().flex_1().min_w(0).p(12).text_color(t.dim).child(this.viewError ?? "Loading file…"))
+        .child(this.notes.panel(t, state, this.code ? this.text : null, this.platform === "macos" ? "⌘C" : "Ctrl+C")));
   }
 
   menu() {

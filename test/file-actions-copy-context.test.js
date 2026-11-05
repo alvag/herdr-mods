@@ -17,7 +17,8 @@ const STUBS = {
     const chain = () => new Proxy(function () {}, { get: (_t, k) => k === "on_key_down"
       ? (fn) => { globalThis.__fa.keyDown = fn; return chain(); } : () => chain() });
     export const v_flex = chain, h_flex = chain, InputState = { new: chain }, Input = { new: chain };
-    export const Editor = { new: chain }, EditorState = { new: () => ({ release() {} }) };`,
+    export const Editor = { new: chain }, EditorState = { new: () => ({ release() {} }) };
+    export const Checkbox = { new: chain }, Textarea = { new: chain }, TextareaState = { new: chain };`,
   herdr: `
     const fa = () => globalThis.__fa;
     const noop = () => {};
@@ -41,7 +42,7 @@ before(async () => {
     writeFileSync(join(pkg, "package.json"), `{"name":"${name}","type":"module","main":"index.js"}`);
     writeFileSync(join(pkg, "index.js"), code);
   }
-  for (const f of ["main.js", "actions.js"]) cpSync(join(SRC, f), join(dir, f));
+  for (const f of ["main.js", "actions.js", "notes.js", "notes-ui.js"]) cpSync(join(SRC, f), join(dir, f));
   globalThis.__fa = { notes: [], execs: [], platform: "macos" };
   FileActions = (await import(pathToFileURL(join(dir, "main.js")).href)).default;
 });
