@@ -22,6 +22,8 @@ Run it again to update; patches already applied are skipped.
 | Click a file already open | Selects its tab, never a second one |
 | Double-click a file | Pins its tab (`<name>`, no `◌`); the next file gets a new preview tab |
 
+**Images are different**: a click on a file with an image extension (PNG, JPEG, GIF, WebP, BMP, SVG, ICO, TIFF) opens it in the [`image-viewer`](https://github.com/dougcunha/herdr-mods/tree/main/image-viewer-app) mod instead, with zoom and scroll — always as a new tab, without the preview-tab flow. Without that mod installed the image keeps the text tab. Another machine's file (`on`) also keeps the text tab: the viewer reads this machine's files only.
+
 **Copy with context**: in a file tab, select text, press ⌘C, then ⌘⌥C (Windows: Ctrl+C, then Ctrl+Alt+C). Windows line endings are fine, and text holding ``` gets a longer fence. The clipboard becomes:
 
 ````

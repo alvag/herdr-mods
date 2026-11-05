@@ -5,7 +5,7 @@ Personal [Herdr](https://herdr.dev) mods, each installed on its own so every com
 | Mod | What it does |
 |---|---|
 | [`open-in-editor`](docs/open-in-editor.md) | Opens a space's folder in VS Code, WebStorm or Finder/Explorer, from the space right-click menu |
-| [`file-actions`](docs/file-actions.md) | Click a file in the Files panel to read it in a tab (preview tab, double-click pins; ⌘C then ⌘⌥C copies with file and lines); right-click a file or folder: copy its path, reveal it, open it in an editor, send it to an agent, create a file or folder, move it to the Trash; optional file icons |
+| [`file-actions`](docs/file-actions.md) | Click a file in the Files panel to read it in a tab (preview tab, double-click pins; ⌘C then ⌘⌥C copies with file and lines); images (PNG, JPEG, GIF, WebP, BMP, SVG, ICO, TIFF) open in the image-viewer mod instead when it's installed; right-click a file or folder: copy its path, reveal it, open it in an editor, send it to an agent, create a file or folder, move it to the Trash; optional file icons |
 | [`mods-updates`](docs/mods-updates.md) | Always installed with the others: a small block in the status bar that shows `herdr-mods ↑` (and a notification) when GitHub has a newer version, once a day; click it to update |
 | [`usage-limits`](docs/usage-limits.md) | Every Claude Code / Codex / OpenCode Go limit window in the status bar, with one panel on hover; forked from [`nozikov/herdr-usage-limits`](https://github.com/nozikov/herdr-usage-limits) (MIT) with our OpenCode Go provider added |
 

@@ -68,6 +68,15 @@ export function targetFolder(path, dir) {
   return dir ? path : path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
 }
 
+// True when the Files panel should open this file in the image-viewer mod
+// (installed separately): an image extension, on this machine — the viewer
+// stages local files only, so another machine's (`on`) keeps the text tab.
+const IMAGE = /\.(png|jpe?g|gif|webp|bmp|svg|ico|tiff?)$/i;
+
+export function opensImage(name, on) {
+  return !on && IMAGE.test(name);
+}
+
 // Why a new entry's name can't be used, or null.
 export function checkName(name) {
   const n = name.trim();

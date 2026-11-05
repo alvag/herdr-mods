@@ -1,12 +1,22 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  checkName, claimTab, contextOf, copyPlan, pastePlan, createError, deletePlan, languageOf, planOpen, previewOf, tabTitle, mentionOf, openPlan, pasteBlocker, pasteSteps, pickAgent, reloadOnFocus, runSteps, createPlan, menuHeight, menuItems, pathsOf, revealPlan, targetFolder,
+  checkName, claimTab, contextOf, copyPlan, pastePlan, createError, deletePlan, languageOf, planOpen, previewOf, tabTitle, mentionOf, openPlan, pasteBlocker, pasteSteps, pickAgent, reloadOnFocus, runSteps, createPlan, menuHeight, menuItems, opensImage, pathsOf, revealPlan, targetFolder,
 } from "../mods/file-actions/actions.js";
 
 const ids = (items) => items.map((it) => it.id);
 // PowerShell that turns UTF-8 base64 back into the text.
 const decoded = (s) => `([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${Buffer.from(s, "utf8").toString("base64")}')))`;
+
+test("opensImage: image files on this machine open in the image-viewer mod", () => {
+  for (const n of ["a.png", "b.JPG", "c.jpeg", "d.gif", "e.webp", "f.bmp", "g.svg", "h.ico", "i.tiff", "j.TIF"]) {
+    assert.equal(opensImage(n, null), true, n);
+  }
+  for (const n of ["a.txt", "b.js", "c.md", "d.pngx", "png", "e.PnG.md", ""]) {
+    assert.equal(opensImage(n, null), false, n);
+  }
+  assert.equal(opensImage("a.png", "machine2"), false, "another machine's file: the viewer reads local files only");
+});
 
 test("menu: copy and reveal, new file and folder, then delete on macOS and Windows", () => {
   assert.deepEqual(ids(menuItems("macos", null)),
