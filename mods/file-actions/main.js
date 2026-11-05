@@ -6,6 +6,7 @@
 //   dialog { remove: true, root, path, dir }     confirms moving an entry to the Trash
 //   dialog { note: "add", file, range, excerpt }  the text of a new note (notes-ui.js)
 //   dialog { note: "edit", id }                  the text of a note already saved
+//   dialog { sendNotes: true, file, ids, space } sends notes to an agent of that space (notes-send.js)
 //   tab    { key }                               a file, read-only, as a whole tab (tab.new); which
 //                                                file is shared("file-actions.tabs")[key] (see panel.js);
 //                                                the file's notes are drawn beside it
@@ -21,6 +22,7 @@ import {
   checkName, claimTab, contextOf, copyPlan, createError, createPlan, deletePlan, languageOf, mentionOf, previewOf, menuItems, openPlan, pasteBlocker, pasteSteps, pathsOf, pickAgent, reloadOnFocus, revealPlan, runSteps, targetFolder,
 } from "./actions.js";
 import { NoteDialog, NotesPanel, startNote } from "./notes-ui.js";
+import { SendDialog, openSend } from "./notes-send.js";
 
 // Runs [program, args, options?]; resolves when it worked, else throws its reason.
 async function attempt([cmd, args, opts], on) {
@@ -59,6 +61,10 @@ export default class FileActions extends View {
     this.at = 0;
     if (p.key) return this.register(cx);
     if (p.view) return;
+    if (p.sendNotes) {
+      this.sender = new SendDialog(p, cx, (text) => this.copyText(text));
+      return;
+    }
     if (p.note) {
       this.noteDialog = new NoteDialog(p, cx);
       return;
@@ -76,6 +82,14 @@ export default class FileActions extends View {
 
   async close() {
     this.noteDialog?.close();
+    this.sender?.close();
+  }
+
+  // Writes this computer's clipboard through the same process-based path as Send to agent.
+  copyText(text) {
+    const plan = copyPlan(text, this.platform);
+    if (!plan) throw new Error("Not supported on this platform.");
+    return attempt(plan);
   }
 
   choose(item, cx) {
@@ -218,7 +232,7 @@ export default class FileActions extends View {
 
   render(cx) {
     const p = props() ?? {};
-    return p.key || p.view ? this.viewer(cx) : p.note ? this.noteDialog.render(theme()) : p.create ? this.dialog() : p.remove ? this.confirm() : this.menu();
+    return p.key || p.view ? this.viewer(cx) : p.sendNotes ? this.sender.render(theme()) : p.note ? this.noteDialog.render(theme()) : p.create ? this.dialog() : p.remove ? this.confirm() : this.menu();
   }
 
   // Herdr's editor tells no selection: the text copied from it with ⌘C is found
@@ -252,6 +266,12 @@ export default class FileActions extends View {
     // Notes belong to the file, not to this tab. Adding one needs the file's text loaded.
     const file = { on: entry.on ?? null, root: entry.root, view: entry.view }, state = this.notes.state(file);
     const add = this.code ? (_e, cx) => this.addNote(file, cx) : null;
+    // The space is read when Send is pressed for a tab with none recorded (an earlier version's).
+    const send = this.code && !state.error && DESKTOP_PLATFORMS.includes(this.platform)
+      ? (ids) => {
+        try { openSend(file, ids, entry.space ?? spaces().find((s) => s.active)?.id); }
+        catch (e) { notify({ title: "Could not send the notes", body: e?.message ?? String(e), level: "warning" }); }
+      } : null;
     return v_flex().id("file-actions-view").size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background)
       .border_1().border_color(t.border).text_color(t.foreground).text_size(13)
       // Keys reach this element while the editor inside it is focused.
@@ -268,7 +288,7 @@ export default class FileActions extends View {
       .child(h_flex().flex_1().min_h(0)
         .child(this.code ? Editor.new(this.code).flex_1().min_w(0).h_full()
           : div().flex_1().min_w(0).p(12).text_color(t.dim).child(this.viewError ?? "Loading file…"))
-        .child(this.notes.panel(t, state, this.code ? this.text : null, this.platform === "macos" ? "⌘C" : "Ctrl+C")));
+        .child(this.notes.panel(t, state, this.code ? this.text : null, this.platform === "macos" ? "⌘C" : "Ctrl+C", send)));
   }
 
   menu() {

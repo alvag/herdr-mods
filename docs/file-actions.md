@@ -90,7 +90,7 @@ If a Herdr update changes the anchors it patches, it stops and names the file.
 
 ## File notes
 
-> **In progress.** Notes can be added, edited, deleted and ticked in a file tab. **Sending them to an agent is not available yet**; it comes in a later step, so the ticks do nothing for now. Copy with context is unchanged. Not yet checked on a real Herdr window.
+> **Not checked in a real Herdr window.** The notes, the chooser and the paste are covered by tests with stand-ins for Herdr's API and by `herdr-app check`; the real window, the dialogs and a paste into a live agent have not been tried. Copy with context is unchanged.
 
 In a file tab, select text, press ⌘C (Ctrl+C), then click **Add note** in the tab's header. Herdr's editor tells no selection, so the note is found like copy with context does, from the clipboard text (which Add note only reads, never changes). A dialog shows the file, the lines and the copied text, with a box for your note; **Save** stores it, **Cancel** (or Esc) discards it.
 
@@ -100,8 +100,26 @@ In a file tab, select text, press ⌘C (Ctrl+C), then click **Add note** in the 
 - **Edit** changes only the note's text; the original lines stay. **Delete** asks `Delete this note?` on the card first.
 - **Stale notes:** when the file changed and the text is no longer at the note's lines, the card says so. The note keeps its original lines; it is never moved.
 - **Corrupted saved notes:** the panel shows the error, Add note is off and nothing is written, so the saved notes are never replaced.
-- **Select** ticks (`n selected` in the panel's header) live in the open tab only and start empty for each file; they are not saved.
+- **Select** ticks (`n selected` in the panel's header) live in the open tab only and start empty for each file; they are not saved. They choose which notes **Send selected** sends.
 - The copied text and your note are drawn as plain text, never as markdown.
+
+### Send notes to an agent
+
+**Send** on a card sends that note; tick cards and press **Send selected** in the panel's header to send several, always in the order they were added. Both open a chooser that shows:
+
+- **Agents of the space this file's tab belongs to**, as `app · address · status`. Agents of other spaces are never listed, so changing focus after opening the chooser cannot send the notes to another project. Agents in other tabs of that space are fine. A blocked agent (waiting for an answer) is shown disabled. With no agents it says so: sending never starts one.
+- **The whole text to paste**, as plain text you can scroll: `File:` (and `Machine:` for a file on another machine), then for each note its `Line:` / `Lines:`, the copied text in a code fence (longer than any run of backticks inside it), and `Note:` with your text outside the fence.
+- **The destination**, and that **Paste to agent** puts the text in the agent's prompt **without pressing Enter**; whatever is already typed there stays, and you press Enter in the agent.
+
+Pasting goes through the system clipboard (Herdr can't type into a terminal without Enter), so **it replaces what you had copied**; the payload stays there afterwards. Only **Paste to agent** changes anything; **Cancel** and Esc before pressing Paste leave the clipboard and the notes alone. Cancelling while the paste is under way (after the clipboard was written) stops it before the paste, with a `Not pasted` notice: the notes stay on the clipboard and nothing reaches the agent. The notes are kept after sending.
+
+Before it copies anything, **Paste to agent** reads the file and the notes again and refuses (nothing is copied or pasted, and the chooser stays open with the reason) when:
+
+- a selected note was deleted, the saved notes are corrupt, or the file can't be read;
+- a note's text is no longer at its original lines (notes are never moved to where the text went);
+- the chosen agent is gone, moved to another space, or waiting for an answer: pasting could answer its permission prompt, so it is checked again after the clipboard is written and after focusing it.
+
+If a note was edited after the preview, the preview is replaced with the new text and nothing is pasted until you press **Paste to agent** again. The agent's pane is focused and checked before pasting; if it doesn't get the focus, nothing is pasted and the notes stay on the clipboard. After pasting, the agent's terminal scrolls to its live screen (`terminal.scroll`, Herdr 0.1.13 or later; optional). Send needs the clipboard commands of macOS or Windows, so it is not offered on Linux.
 
 ### File notes data model
 

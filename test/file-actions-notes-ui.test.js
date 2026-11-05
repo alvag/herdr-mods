@@ -80,7 +80,7 @@ before(async () => {
     writeFileSync(join(pkg, "package.json"), `{"name":"${name}","type":"module","main":"index.js"}`);
     writeFileSync(join(pkg, "index.js"), code);
   }
-  for (const f of ["main.js", "actions.js", "notes.js", "notes-ui.js"]) cpSync(join(SRC, f), join(dir, f));
+  for (const f of ["main.js", "actions.js", "notes.js", "notes-ui.js", "notes-send.js"]) cpSync(join(SRC, f), join(dir, f));
   globalThis.__ui = { el, area: null };
   FileActions = (await import(pathToFileURL(join(dir, "main.js")).href)).default;
   NOTES = (await import(pathToFileURL(join(dir, "notes.js")).href)).NOTES;

@@ -13,11 +13,11 @@ import { NOTES, addNote, isCurrent, notesOf, readNotes, removeNote, sourceOf, up
 const PANEL_WIDTH = 320;
 const PANEL_MIN = 240;
 
-const lines = (range) => (range.first === range.last ? `Line ${range.first}` : `Lines ${range.first}-${range.last}`);
+export const lines = (range) => (range.first === range.last ? `Line ${range.first}` : `Lines ${range.first}-${range.last}`);
 const reason = (e) => e?.message ?? String(e);
 
 // The same look as the other dialogs' buttons; a disabled one has no handler.
-function button(t, id, text, { primary, action }) {
+export function button(t, id, text, { primary, action }) {
   return h_flex().id(id).h(30).px(12).items_center().rounded(8)
     .border_1().border_color(primary ? t.solid : t.input).bg(primary ? t.solid : t.raised)
     .text_color(primary ? t.solid_foreground : t.foreground).text_size(12.5).font_medium()
@@ -77,20 +77,22 @@ export class NotesPanel {
     cx.notify();
   }
 
-  panel(t, state, fileText, keys) {
-    const count = state.list?.filter((n) => this.picked.has(n.id)).length ?? 0;
+  // `send(ids)` starts sending those notes, or is null while sending isn't possible.
+  panel(t, state, fileText, keys, send = null) {
+    const ids = (state.list ?? []).filter((n) => this.picked.has(n.id)).map((n) => n.id), count = ids.length;
     return v_flex().id("fa-notes").w(PANEL_WIDTH).min_w(PANEL_MIN).h_full().min_h(0).flex_none().border_l(1).border_color(t.border)
       .child(h_flex().h(34).flex_none().px(12).items_center().border_b(1).border_color(t.border)
         .child(div().flex_1().font_semibold().child(`Notes${state.list ? ` (${state.list.length})` : ""}`))
-        .when(count > 0, (el) => el.child(div().text_size(11.5).text_color(t.dim).child(`${count} selected`))))
+        .when(count > 0, (el) => el.child(div().text_size(11.5).text_color(t.dim).child(`${count} selected`)))
+        .when(count > 0, (el) => el.child(div().w(8)).child(button(t, "fa-notes-send-selected", "Send selected", { action: send ? () => send(ids) : null }))))
       .child(v_flex().id("fa-notes-list").flex_1().min_h(0).overflow_y_scroll().p(10).gap(10)
         .when(Boolean(state.error), (el) => el.child(div().text_size(12).text_color(t.blocked).child(state.error)))
         .when(state.list?.length === 0, (el) => el.child(div().text_size(12).text_color(t.dim)
           .child(`Select text, press ${keys}, then Add note.`)))
-        .children((state.list ?? []).map((n) => this.card(t, n, fileText))));
+        .children((state.list ?? []).map((n) => this.card(t, n, fileText, send))));
   }
 
-  card(t, n, fileText) {
+  card(t, n, fileText, send = null) {
     const stale = typeof fileText === "string" && !isCurrent(fileText, n);
     return v_flex().id(`fa-note-${n.id}`).p(10).gap(8).rounded(8).border_1().border_color(stale ? t.blocked : t.border).bg(t.raised)
       .child(h_flex().items_center().gap(8)
@@ -110,6 +112,7 @@ export class NotesPanel {
           .child(button(t, `fa-note-keep-${n.id}`, "Keep", { action: (_e, cx) => { this.asking = null; cx.notify(); } }))
           .child(button(t, `fa-note-confirm-${n.id}`, "Delete", { primary: true, action: (_e, cx) => this.remove(n.id, cx) }))
         : h_flex().gap(8).justify_end()
+          .child(button(t, `fa-note-send-${n.id}`, "Send", { action: send ? () => send([n.id]) : null }))
           .child(button(t, `fa-note-edit-${n.id}`, "Edit", {
             action: () => openOverlay({ mod: "file-actions", kind: "dialog", width: 560, height: 440, props: { note: "edit", id: n.id } }),
           }))
