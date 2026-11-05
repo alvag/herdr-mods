@@ -88,6 +88,17 @@ The matching (`scripts/wire/my-files-icon-match.js`) is ported from file-icons' 
 
 If a Herdr update changes the anchors it patches, it stops and names the file.
 
+## File notes data model (MVP foundation)
+
+> **Not usable yet.** Only the model in `mods/file-actions/notes.js` exists. There is no Add note dialog, panel or send to agent; those come in later steps. Copy with context is unchanged.
+
+Notes are kept in `shared("file-actions.notes")` (exported as `NOTES`) as `{ next, notes }`. Each note has an `id` (`n1`, `n2`, ... never reused), the file (`on`, `root`, `view`: machine, panel root and relative path, with no machine stored as `null`), the original range, the copied `excerpt` (LF line endings) and the user's `note`. Notes belong to the file, not to a tab, and a file on another machine or under another root has its own notes.
+
+- **Matching:** `sourceOf(fileText, copied)` finds the copied text in the file like copy with context does (CRLF and one final newline ignored), but it throws when the text is empty, missing, or appears more than once, instead of taking the first place. The range is `first`..`last` lines plus `column`, the offset in the first line, so a selection that starts mid-line is kept exactly.
+- **Stale notes:** `isCurrent(fileText, note)` is true only while the excerpt is still at exactly that range. After an edit it is false; nothing moves the note to where the text went.
+- **Operations:** `addNote`, `updateNote`, `removeNote` and `notesOf` take the stored state and return a new one (the input is never changed); the caller saves it with `setShared`. Notes keep the order they were added. Note text is trimmed and can't be empty.
+- **Corrupted state:** every operation validates the stored state first and throws `Saved notes are invalid: ...` (bad format, repeated or malformed id, empty note, range not matching the excerpt). Nothing is dropped or repaired, so a caller can't overwrite notes it couldn't read. Missing state means no notes. There is no limit on the number of notes and no migration of older data.
+
 ## Limits
 
 - Installing again (or updating) reloads the mod: Herdr closes the file tabs that were open.
