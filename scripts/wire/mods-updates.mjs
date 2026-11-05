@@ -13,8 +13,13 @@ const find = (node, test) => test(node) ? node : (node.children ?? []).reduce((h
 export function withUpdatesBlock(layout, file) {
   if (find(layout, (n) => n.content?.mod === MOD)) return null;
   const out = structuredClone(layout);
-  const status = find(out, (n) => n.id === "status" && n.type === "block");
+  const status = find(out, (n) => n.id === "status");
   if (!status) throw new Error(`${file}: status block not found, Herdr changed it`);
+  // Another wire hook (usage-limits) may have made the status a row already.
+  if (status.type === "row") {
+    status.children.push({ id: "status-updates", type: "block", content: { mod: MOD }, size: { px: 110 } });
+    return out;
+  }
   const { size } = status;
   const main = { ...status, id: "status-main", size: { weight: 1 } };
   for (const k of Object.keys(status)) delete status[k];

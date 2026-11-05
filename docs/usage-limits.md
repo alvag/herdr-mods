@@ -7,6 +7,10 @@ Forked from [`nozikov/herdr-usage-limits`](https://github.com/nozikov/herdr-usag
 (MIT, tree `f593713b83c5d1852733250d3f175721dd1ac6ec`). Upstream providers
 (Claude, Codex) are unchanged; the fork adds the OpenCode Go provider.
 
+The installer wires it into the `my-main` layout's status bar by itself
+(`scripts/wire/usage-limits.mjs`): between `workspace-status` and the
+`mods-updates` notifier, order-independent with that hook, and safe to rerun.
+
 ## OpenCode Go provider
 
 Reads the OpenCode Go subscription meters — rolling 5-hour, weekly and monthly
