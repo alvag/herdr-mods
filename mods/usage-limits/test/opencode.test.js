@@ -10,7 +10,7 @@ import { MOD, NOW, read } from "./_util.js";
 test("descriptor", () => {
   assert.equal(opencode.id, "opencode-go");
   assert.equal(opencode.name, "OpenCode Go");
-  assert.equal(opencode.icon, "icons/opencode.svg");
+  assert.equal(opencode.icon, "icons/opencode-white.svg");
   assert.equal(opencode.helper, "helpers/opencode-usage.sh");
 });
 

@@ -56,7 +56,7 @@ test("barModel: every provider, all windows, in registry order", () => {
   assert.deepEqual(m.groups.map((g) => [g.providerId, g.name, g.icon, g.mark, g.dim]), [
     ["claude", "Claude", "icons/claude.svg", null, false],
     ["codex", "Codex", "icons/codex.svg", null, false],
-    ["opencode-go", "OpenCode Go", "icons/opencode.svg", null, false],
+    ["opencode-go", "OpenCode Go", "icons/opencode-white.svg", null, false],
   ]);
   assert.deepEqual(m.groups[0].segments.map((s) => s.short), ["5h", "wk", "Fable"]);
   assert.deepEqual(m.groups[2].segments.map((s) => s.short), ["5h", "wk", "mo"]);

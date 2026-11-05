@@ -31,7 +31,7 @@ export function parse(text, now) {
 export default {
   id: "opencode-go",
   name: "OpenCode Go",
-  icon: "icons/opencode.svg",
+  icon: "icons/opencode-white.svg",
   helper: "helpers/opencode-usage.sh",
   parse,
 };
