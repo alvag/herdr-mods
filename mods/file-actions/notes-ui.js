@@ -77,8 +77,15 @@ export class NotesPanel {
     cx.notify();
   }
 
+  // Whether the panel takes space at all: with no readable notes it is not drawn, so
+  // the file keeps the full width (the Add note button in the toolbar still adds the
+  // first one); saved notes that can't be read keep it on screen as an error.
+  shown(state) {
+    return Boolean(state.error) || (state.list?.length ?? 0) > 0;
+  }
+
   // `send(ids)` starts sending those notes, or is null while sending isn't possible.
-  panel(t, state, fileText, keys, send = null) {
+  panel(t, state, fileText, send = null) {
     const ids = (state.list ?? []).filter((n) => this.picked.has(n.id)).map((n) => n.id), count = ids.length;
     return v_flex().id("fa-notes").w(PANEL_WIDTH).min_w(PANEL_MIN).h_full().min_h(0).flex_none().border_l(1).border_color(t.border)
       .child(h_flex().h(34).flex_none().px(12).items_center().border_b(1).border_color(t.border)
@@ -87,8 +94,6 @@ export class NotesPanel {
         .when(count > 0, (el) => el.child(div().w(8)).child(button(t, "fa-notes-send-selected", "Send selected", { action: send ? () => send(ids) : null }))))
       .child(v_flex().id("fa-notes-list").flex_1().min_h(0).overflow_y_scroll().p(10).gap(10)
         .when(Boolean(state.error), (el) => el.child(div().text_size(12).text_color(t.blocked).child(state.error)))
-        .when(state.list?.length === 0, (el) => el.child(div().text_size(12).text_color(t.dim)
-          .child(`Select text, press ${keys}, then Add note.`)))
         .children((state.list ?? []).map((n) => this.card(t, n, fileText, send))));
   }
 

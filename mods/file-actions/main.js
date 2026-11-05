@@ -288,7 +288,9 @@ export default class FileActions extends View {
       .child(h_flex().flex_1().min_h(0)
         .child(this.code ? Editor.new(this.code).flex_1().min_w(0).h_full()
           : div().flex_1().min_w(0).p(12).text_color(t.dim).child(this.viewError ?? "Loading file…"))
-        .child(this.notes.panel(t, state, this.code ? this.text : null, this.platform === "macos" ? "⌘C" : "Ctrl+C", send)));
+        // The notes panel takes space only when there is something to show; with no
+        // notes the editor keeps the full width. Add note in the toolbar still works.
+        .when(this.notes.shown(state), (el) => el.child(this.notes.panel(t, state, this.code ? this.text : null, send))));
   }
 
   menu() {

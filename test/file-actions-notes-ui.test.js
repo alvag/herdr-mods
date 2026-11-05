@@ -192,6 +192,18 @@ test("the dialog shows the file, lines and source as plain text, and Save stores
   assert.deepEqual(u.execs, []);
 });
 
+test("the notes panel stays hidden while the file has no notes and returns with the first one", async () => {
+  const v = await viewer();
+  assert.equal(find(v.tree, "fa-notes"), undefined);
+  assert.doesNotMatch(v.text, /Notes/);
+  assert.doesNotMatch(v.text, /Select text/);
+  assert.ok(find(v.tree, "fa-note-add"));
+  globalThis.__ui.store[NOTES] = stored(note("n1", "alpha beta", "Look here"));
+  v.draw();
+  assert.ok(find(v.tree, "fa-notes"));
+  assert.match(v.text, /Notes \(1\)/);
+});
+
 test("a note saved is shown as a card, and a new view of the file restores it", async () => {
   globalThis.__ui.store[NOTES] = stored(note("n1", "alpha beta", "Look here"));
   const v = await viewer();
@@ -344,10 +356,15 @@ test("Delete asks first; only the confirmation removes the note", async () => {
   assert.doesNotMatch(v.text, /1 selected/);
 });
 
-test("with no notes the panel explains how to add one", async () => {
-  assert.match((await viewer()).text, /Select text, press ⌘C, then Add note\./);
-  globalThis.__ui.platform = "windows";
-  assert.match((await viewer()).text, /Select text, press Ctrl\+C, then Add note\./);
+test("with no notes the panel is not drawn and the last note removed takes it away", async () => {
+  globalThis.__ui.store[NOTES] = stored(note("n1", "alpha beta", "Only"));
+  const v = await viewer();
+  assert.ok(find(v.tree, "fa-notes"));
+  globalThis.__ui.store[NOTES] = { next: 2, notes: [] };
+  v.draw();
+  assert.equal(find(v.tree, "fa-notes"), undefined);
+  assert.doesNotMatch(v.text, /Notes/);
+  assert.ok(find(v.tree, "fa-note-add"));
 });
 
 test("closing the dialog while Save waits for the file stores nothing and touches nothing after it", async () => {

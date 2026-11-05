@@ -94,7 +94,7 @@ If a Herdr update changes the anchors it patches, it stops and names the file.
 
 In a file tab, select text, press ⌘C (Ctrl+C), then click **Add note** in the tab's header. Herdr's editor tells no selection, so the note is found like copy with context does, from the clipboard text (which Add note only reads, never changes). A dialog shows the file, the lines and the copied text, with a box for your note; **Save** stores it, **Cancel** (or Esc) discards it.
 
-- **Panel:** every note of the file is a card on the right of the tab: lines, copied text, your note, **Edit**, **Delete** and a **Select** tick. A file with no notes shows how to add one. Notes belong to the file, not to the tab, so they are back when it is opened again, in any tab.
+- **Panel:** every note of the file is a card on the right of the tab: lines, copied text, your note, **Edit**, **Delete** and a **Select** tick. While the file has no notes the panel is not drawn at all, so the file keeps the whole width; it comes back with the first note (the **Add note** button in the tab's header always stays). Saved notes that can't be read keep the panel on screen with the error. Notes belong to the file, not to the tab, so they are back when it is opened again, in any tab.
 - **Add note refuses** (with a warning, no dialog) text that is empty, isn't in the file, or appears more than once (select a longer piece). It is off while the file isn't loaded (missing, unreadable or binary).
 - **Save** reads the file again: if the copied text is no longer at its lines, the dialog stays open and says so; nothing is stored. A blank note shows `Write a note first.` and stays open.
 - **Edit** changes only the note's text; the original lines stay. **Delete** asks `Delete this note?` on the card first.
