@@ -1,8 +1,8 @@
 // Sends file notes to an existing agent: the payload text (payloadOf), and the
 // overlay (SendDialog) where the person sees it, picks an agent of the space the
 // file's tab belongs to, and presses Paste to agent. Nothing is created or
-// submitted: the text lands in the agent's prompt, never followed by Enter, and
-// the notes stay saved.
+// submitted: the text lands in the agent's prompt, never followed by Enter. Only
+// after that paste ran are the notes sent, and still unchanged, removed.
 //
 // Pasting into an agent that is waiting for an answer (a permission prompt) could
 // answer it with the notes, so a blocked agent is never offered and is checked
@@ -10,9 +10,9 @@
 // read again at paste time and the text reviewed must be the text pasted.
 import { div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { agents, closeOverlay, focused, notify, openOverlay, readTextFile, run, settings, shared } from "herdr";
+import { agents, closeOverlay, focused, notify, openOverlay, readTextFile, run, settings, setShared, shared } from "herdr";
 import { pasteBlocker, pasteSteps, runSteps } from "./actions.js";
-import { NOTES, isCurrent, notesOf } from "./notes.js";
+import { NOTES, isCurrent, notesOf, readNotes, removeNote } from "./notes.js";
 import { button, lines } from "./notes-ui.js";
 
 const reason = (e) => e?.message ?? String(e);
@@ -39,8 +39,9 @@ export function openSend(file, ids, space) {
   openOverlay({ mod: "file-actions", kind: "dialog", width: 640, height: 640, props: { sendNotes: true, file: { on: file.on ?? null, root: file.root, view: file.view }, ids: [...ids], space } });
 }
 
-// The payload for the selection as it is now: the file is read again and every
-// selected note must still be where it was copied. Throws why not.
+// The payload for the selection as it is now, with copies of the notes it was
+// built from: { payload, sent }. The file is read again and every selected note
+// must still be where it was copied. Throws why not.
 async function gather({ file, ids }) {
   if (!Array.isArray(ids) || !ids.length || ids.some((id) => typeof id !== "string") || new Set(ids).size !== ids.length) throw new Error("Select at least one note.");
   if (!file || typeof file.root !== "string" || typeof file.view !== "string") throw new Error("The file of these notes is not valid.");
@@ -53,7 +54,20 @@ async function gather({ file, ids }) {
   if (notes.length !== ids.length) throw new Error("A selected note no longer exists.");
   const moved = notes.find((n) => !isCurrent(text, n));
   if (moved) throw new Error(`The file changed: the text of ${lines(moved.range).toLowerCase()} is no longer there. Nothing was sent.`);
-  return payloadOf(file, notes);
+  return { payload: payloadOf(file, notes), sent: notes.map((n) => JSON.parse(JSON.stringify(n))) };
+}
+
+// Removes from the saved notes the `sent` ones that are still exactly as sent.
+// Edited, added and already removed notes are left alone. One write, none if
+// nothing matches. Throws if the saved notes can't be read or written.
+function consume(sent) {
+  const before = readNotes(shared(NOTES));
+  let state = before;
+  for (const s of sent) {
+    const now = state.notes.find((n) => n.id === s.id);
+    if (now && JSON.stringify(now) === JSON.stringify(s)) state = removeNote(state, s.id);
+  }
+  if (state !== before) setShared(NOTES, state);
 }
 
 // props: sendNotes, file, ids, space. `copy(text)` puts text on this computer's clipboard.
@@ -69,7 +83,7 @@ export class SendDialog {
     this.sending = false;
     this.closed = false;
     cx.spawn(async (cx) => {
-      try { this.payload = await gather(p); } catch (e) { this.error = reason(e); }
+      try { this.payload = (await gather(p)).payload; } catch (e) { this.error = reason(e); }
       this.loading = false;
       cx.notify();
     });
@@ -113,7 +127,7 @@ export class SendDialog {
   }
 
   async deliver(address, cx) {
-    const payload = await gather(this.p);
+    const { payload, sent } = await gather(this.p);
     if (this.closed) return;
     if (payload !== this.payload) {
       this.payload = payload;
@@ -134,7 +148,12 @@ export class SendDialog {
     if (focused()?.pane !== agent.pane) throw new Error(`Could not focus ${agent.address}.`);
     if (this.closed) return cancelled();
     runSteps(pasteSteps(agent.address), run);
-    notify({ title: "Notes pasted", body: `In the prompt of ${agent.address}. Not sent: press Enter there.`, level: "success", timeout: 3000 });
+    // The paste happened: whatever goes wrong now is a warning, never "Nothing was pasted".
+    let failed = null;
+    try { consume(sent); } catch (e) { failed = reason(e).replace(/\.$/, ""); }
+    const where = `In the prompt of ${agent.address}. Not sent: press Enter there.`;
+    if (failed) notify({ title: "Notes pasted", body: `${where} The saved notes were not removed (${failed}); delete them in the panel, do not paste again.`, level: "warning" });
+    else notify({ title: "Notes pasted", body: `${where} Unchanged pasted notes were removed; edited or unsent notes were kept.`, level: "success", timeout: 3000 });
     closeOverlay(this.p.overlay);
   }
 

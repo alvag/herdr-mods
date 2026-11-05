@@ -273,7 +273,88 @@ test("pasting copies the payload, focuses the exact agent, verifies it, then pas
   assert.deepEqual(u.closed, ["ov1"]);
   assert.deepEqual(u.notes.map((n) => [n.title, n.level]), [["Notes pasted", "success"]]);
   assert.match(u.notes[0].body, /Not sent/);
-  pristine(u, stored(N1, N2));
+  assert.equal(u.sets, 1);
+  assert.deepEqual(u.store[NOTES], { next: 3, notes: [] });
+});
+
+test("a single note is removed only after the mandatory paste ran, and the other note stays", async () => {
+  const u = globalThis.__ui;
+  const focus = u.onRun;
+  let atPaste;
+  u.onRun = (cmd, a) => { focus(cmd, a); if (cmd === "terminal.paste") atPaste = [u.sets, JSON.stringify(u.store[NOTES])]; };
+  const c = await chooser(["n1"]);
+  await c.press("fa-send-agent-t1");
+  await c.press("fa-send-paste");
+  assert.deepEqual(atPaste, [0, JSON.stringify(stored(N1, N2))]);
+  assert.equal(u.sets, 1);
+  assert.deepEqual(u.store[NOTES], { next: 3, notes: [N2] });
+  assert.match(u.notes[0].body, /removed/);
+  assert.deepEqual(u.closed, ["ov1"]);
+  assert.equal(u.log.some((l) => l[2]?.text !== undefined || l[1] === "terminal.send_keys"), false);
+});
+
+test("a pasted batch removes only the selected notes of that file, keeps the counter, and a failing optional scroll does not stop it", async () => {
+  const u = globalThis.__ui;
+  const N3 = { ...N1, id: "n3", range: { first: 1, last: 1, column: 0 }, note: "Unselected" };
+  const N4 = { ...N1, id: "n4", file: { ...FILE, view: "src/b.js" }, note: "Other file" };
+  u.store[NOTES] = { next: 5, notes: [N1, N3, N2, N4] };
+  const focus = u.onRun;
+  u.onRun = (cmd, a) => { focus(cmd, a); if (cmd === "terminal.scroll") throw new Error("old Herdr"); };
+  const c = await chooser(["n2", "n1"]);
+  await c.press("fa-send-agent-t1");
+  await c.press("fa-send-paste");
+  assert.deepEqual(kinds(u), ["copy", "pane.focus", "terminal.paste", "terminal.scroll"]);
+  assert.equal(u.sets, 1);
+  assert.deepEqual(u.store[NOTES], { next: 5, notes: [N3, N4] });
+});
+
+test("a failed copy or a failed paste leaves the saved notes exactly as they were", async () => {
+  for (const fail of ["copy", "paste"]) {
+    const u = globalThis.__ui;
+    u.sets = 0;
+    u.store[NOTES] = stored(N1, N2);
+    u.log.length = 0;
+    const focus = u.onRun;
+    if (fail === "copy") u.onCopy = async () => { throw new Error("pbcopy failed"); };
+    else u.onRun = (cmd, a) => { focus(cmd, a); if (cmd === "terminal.paste") throw new Error("paste refused"); };
+    const c = await chooser(["n1", "n2"]);
+    await c.press("fa-send-agent-t1");
+    await c.press("fa-send-paste");
+    assert.match(c.text, fail === "copy" ? /pbcopy failed\. Nothing was pasted\./ : /paste refused\. The notes are on the clipboard\./);
+    assert.deepEqual(u.closed, []);
+    pristine(u, stored(N1, N2));
+    u.onCopy = null;
+    u.onRun = focus;
+  }
+});
+
+test("a sent note edited or a note added while the paste is under way is kept; the unchanged sent note is removed", async () => {
+  const u = globalThis.__ui;
+  const added = { ...N1, id: "n3", note: "Added meanwhile" };
+  const c = await chooser(["n1", "n2"]);
+  await c.press("fa-send-agent-t1");
+  u.onCopy = async () => { u.store[NOTES] = { next: 4, notes: [{ ...N1, note: "Edited meanwhile" }, N2, added] }; };
+  await c.press("fa-send-paste");
+  assert.equal(kinds(u).includes("terminal.paste"), true);
+  assert.equal(u.sets, 1);
+  assert.deepEqual(u.store[NOTES], { next: 4, notes: [{ ...N1, note: "Edited meanwhile" }, added] });
+});
+
+test("when the notes can't be cleaned up after a real paste it is still a success with a warning, never pasted twice", async () => {
+  const u = globalThis.__ui;
+  const focus = u.onRun;
+  const bad = { next: 0, notes: [] };
+  u.onRun = (cmd, a) => { focus(cmd, a); if (cmd === "terminal.paste") u.store[NOTES] = bad; };
+  const c = await chooser(["n1"]);
+  await c.press("fa-send-agent-t1");
+  await c.press("fa-send-paste");
+  assert.deepEqual(kinds(u), ["copy", "pane.focus", "terminal.paste", "terminal.scroll"]);
+  assert.deepEqual(u.notes.map((n) => [n.title, n.level]), [["Notes pasted", "warning"]]);
+  assert.match(u.notes[0].body, /Saved notes are invalid/);
+  assert.match(u.notes[0].body, /do not paste again/i);
+  assert.doesNotMatch(c.text, /Nothing was pasted/);
+  assert.deepEqual(u.closed, ["ov1"]);
+  pristine(u, bad);
 });
 
 test("the paste is not done when the focus never reaches the chosen agent; the overlay stays with the reason", async () => {
