@@ -11,6 +11,8 @@ import { barModel, cardModel, chooseDensity, panelOnEnter } from "./lib/view.js"
 import { effectivePrefs, isOnBar, isShown, toggleOnBar, toggleProvider, toggleShowResetTime, toggleWindow } from "./lib/prefs.js";
 import { parseSession, sessionOnBar, sessionView } from "./lib/session.js";
 import { nextState } from "./lib/state.js";
+import { errorReport } from "./lib/report.js";
+import { fetchProvider } from "./lib/fetch.js";
 
 const MOD = "usage-limits";
 const KEY_STATE = "usage-limits.state";
@@ -79,12 +81,18 @@ export default class UsageLimits extends View {
       let next;
       const prev = states()[p.id] ?? { report: null, lastGood: null, installed: null };
       try {
-        const r = await exec("sh", [`${appHome()}/mods/${MOD}/${p.helper}`]);
-        next = r.code === 127 ? nextState(prev, null, false) : nextState(prev, p.parse(r.stdout, now()), true);
+        const helperPath = `${appHome()}/mods/${MOD}/${p.helper}`;
+        const schedule = (ms, fn) => {
+          const task = cx.timer.after(ms, fn);
+          return () => task.cancel();
+        };
+        const { installed, report } = await fetchProvider(exec, schedule, helperPath, p.helper, p.parse, now());
+        next = nextState(prev, report, installed);
       } catch (e) {
-        next = { ...prev, report: { status: "error", message: String(e?.message ?? e), plan: null, observedAt: now(), source: p.helper, windows: [] } };
+        next = { ...prev, report: errorReport(p.helper, String(e?.message ?? e), now()), installed: true };
+      } finally {
+        this.busy[p.id] = false;
       }
-      this.busy[p.id] = false;
       setShared(KEY_STATE, { ...states(), [p.id]: next });
       cx.notify();
     });
