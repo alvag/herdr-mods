@@ -23,6 +23,7 @@ shows `↑` when GitHub has a newer tree. This installer never installs them:
 | `image-viewer` | [`dougcunha/herdr-mods`](https://github.com/dougcunha/herdr-mods/tree/main/image-viewer-app) | Tracked external. [`file-actions`](docs/file-actions.md) opens images from the Files panel in it when installed; without it images keep the text tab |
 | `file-icons` | [`cybertron288/herdr-mods`](https://github.com/cybertron288/herdr-mods) | Tracked external, optional: VS Code Material icons in the Files panel; `file-actions` picks it up when present |
 | `desktop-notifications` | [`benjaminsicard/herdr-mods`](https://github.com/benjaminsicard/herdr-mods) | Tracked external: agents' "needs you" / "finished" alerts in the system notification center |
+| `reviewer` | [`vytasgavelis/herdr-reviewer`](https://github.com/vytasgavelis/herdr-reviewer) (MIT) | Tracked external: a pull-request style review of the working tree (foldable diff, per-line comments, "submit review" to an agent). It takes the place of the `changes` panel in `my-main`; the layout swap is done by hand, see the mod's own README |
 
 ## Install
 
